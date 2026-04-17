@@ -1,0 +1,16 @@
+{
+  "name": "quiz-bot",
+  "version": "1.0.0",
+  "description": "DALL-E 3 quiz bot",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "deploy": "node deploy-commands.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.15.3",
+    "dotenv": "^16.4.5",
+    "openai": "^4.52.7",
+    "sharp": "^0.34.5"
+  }
+}

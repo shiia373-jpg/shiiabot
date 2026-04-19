@@ -101,10 +101,11 @@ async function handleModal(interaction) {
     }
 
     const answer = interaction.fields.getTextInputValue('word_input').trim();
-    if (/[\u4E00-\u9FFF\u3400-\u4DBF]/.test(answer)) {
-      return interaction.reply({ content: '⚠️ お題にはひらがな・カタカナのみ使用できます。漢字は使えません。', ephemeral: true });
-    }
     await interaction.deferUpdate();
+    if (/[\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF]/.test(answer)) {
+      await interaction.followUp({ content: '⚠️ お題にはひらがな・カタカナのみ使用できます。漢字は使えません。', ephemeral: true });
+      return;
+    }
     await generateAndStartRound(interaction, game, answer, interaction.channel);
     return;
   }
@@ -182,14 +183,14 @@ async function handleModal(interaction) {
     }
 
     const answer = interaction.fields.getTextInputValue('next_word_input').trim();
-    if (/[\u4E00-\u9FFF\u3400-\u4DBF]/.test(answer)) {
-      return interaction.reply({ content: '⚠️ お題にはひらがな・カタカナのみ使用できます。漢字は使えません。', ephemeral: true });
+    await interaction.deferUpdate();
+    if (/[\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF]/.test(answer)) {
+      await interaction.followUp({ content: '⚠️ お題にはひらがな・カタカナのみ使用できます。漢字は使えません。', ephemeral: true });
+      return;
     }
     const prevAnswer = game.answer;
     const winners = game.roundWinners || [];
     const isLastRound = game.currentRound >= game.totalRounds;
-
-    await interaction.deferUpdate();
 
     // ラウンド終了メッセージを表示
     await interaction.message.edit({ ...buildRoundEndMessage(game, prevAnswer, winners), files: [] });

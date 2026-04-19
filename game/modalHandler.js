@@ -16,7 +16,7 @@ function buildImagePrompt(answer) {
   );
 }
 
-async function pixelateImage(imageBuffer, pixelSize = 100) {
+async function pixelateImage(imageBuffer, pixelSize = 32) {
   const image = sharp(imageBuffer);
   const metadata = await image.metadata();
   const width = metadata.width;

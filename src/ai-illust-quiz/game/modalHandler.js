@@ -7,15 +7,15 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 function buildImagePrompt(answer) {
   return (
-    `Create a challenging, heavily obscured illustration where the hidden subject is "${answer}". ` +
-    `Apply TWO of these techniques simultaneously: extreme macro close-up of an unexpected detail, ` +
-    `an unusual angle (top-down or bottom-up), silhouette blended into a busy background, ` +
-    `double exposure with an unrelated object, or fragmented mosaic effect. ` +
-    `The subject should take at least 30 seconds to a minute to identify. ` +
+    `Create a charming, visually pleasant illustration where the hidden subject is "${answer}". ` +
+    `Make it challenging to identify by applying ONE or TWO of these techniques: ` +
+    `an unusual angle (top-down or bottom-up), a stylized or abstract artistic style, ` +
+    `clever use of negative space, or showing only a partial view from an unexpected perspective. ` +
+    `The overall image should feel cute, beautiful, or whimsical — never unsettling or gross. ` +
+    `Use soft colors and clean shapes. The subject should take some thought to identify. ` +
     `No text, no letters, no words anywhere in the image. ` +
-    `Important: avoid any imagery that could trigger trypophobia — no clusters of holes or pores, ` +
-    `no irregular bumpy or pitted surfaces, no dense repetitive circular patterns, ` +
-    `no honeycomb or lotus-pod-like structures.`
+    `Avoid anything disturbing, grotesque, gory, or trypophobia-triggering: ` +
+    `no clusters of holes or pores, no irregular bumpy surfaces, no dense repetitive circular patterns.`
   );
 }
 

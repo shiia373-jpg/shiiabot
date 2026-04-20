@@ -8,9 +8,9 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 function buildImagePrompt(answer) {
   return (
-    `Create a cute, kawaii-style illustration where the hidden subject is "${answer}". ` +
+    `Create a cute, kawaii-style illustration where the subject is "${answer}". ` +
+    `Draw the subject clearly and recognizably from a straightforward angle — it should be easy to identify within a few seconds. ` +
     `The art style should be clean, friendly, and appealing — like a sticker or children's book illustration. ` +
-    `Make it challenging to identify by using an unusual angle or showing only a partial view. ` +
     `Use soft pastel colors, smooth surfaces, and simple rounded shapes. ` +
     `No text, no letters, no words anywhere in the image. ` +
     `STRICTLY FORBIDDEN — must never appear under any circumstances: ` +
@@ -122,7 +122,7 @@ async function startApprovedRound(buttonInteraction, channel) {
   const guildId = buttonInteraction.guildId;
   const game = getGame(guildId);
 
-  const pixelated = await pixelateImage(game.pendingImageBuffer, 100);
+  const pixelated = await pixelateImage(game.pendingImageBuffer, 48);
   const attachment = { attachment: pixelated, name: 'quiz.png' };
 
   setGame(guildId, {

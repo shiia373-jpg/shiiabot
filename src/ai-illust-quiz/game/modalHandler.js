@@ -12,7 +12,10 @@ function buildImagePrompt(answer) {
     `an unusual angle (top-down or bottom-up), silhouette blended into a busy background, ` +
     `double exposure with an unrelated object, or fragmented mosaic effect. ` +
     `The subject should take at least 30 seconds to a minute to identify. ` +
-    `No text, no letters, no words anywhere in the image.`
+    `No text, no letters, no words anywhere in the image. ` +
+    `Important: avoid any imagery that could trigger trypophobia — no clusters of holes or pores, ` +
+    `no irregular bumpy or pitted surfaces, no dense repetitive circular patterns, ` +
+    `no honeycomb or lotus-pod-like structures.`
   );
 }
 

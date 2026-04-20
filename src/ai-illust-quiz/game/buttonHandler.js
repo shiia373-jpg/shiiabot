@@ -1,6 +1,7 @@
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 const { getGame, updateGame, clearGame } = require('./gameState');
 const { buildGiveupMessage, buildFinalMessage, buildStopMessage } = require('./quizBuilder');
+const { startApprovedRound, regeneratePreview } = require('./modalHandler');
 
 async function handleButton(interaction) {
   const guildId = interaction.guildId;
@@ -40,6 +41,29 @@ async function handleButton(interaction) {
     await interaction.deferReply();
     const sent = await interaction.followUp({ ...messagePayload, fetchReply: true });
     updateGame(guildId, { messageId: sent.id });
+    return;
+  }
+
+  if (interaction.customId === 'quiz_image_approve') {
+    const game = getGame(guildId);
+    if (!game || !game.pendingImageBuffer) {
+      return interaction.reply({ content: '⚠️ 確認待ちのイラストがありません。', ephemeral: true });
+    }
+    if (interaction.user.id !== game.quizmasterId) {
+      return interaction.reply({ content: '出題者のみ操作できます。', ephemeral: true });
+    }
+    await interaction.update({ content: '✅ イラストを確認しました！クイズを開始します。', files: [], components: [] });
+    await startApprovedRound(interaction, interaction.channel);
+    return;
+  }
+
+  if (interaction.customId === 'quiz_image_reject') {
+    const game = getGame(guildId);
+    if (!game) return interaction.reply({ content: '⚠️ エラーが発生しました。', ephemeral: true });
+    if (interaction.user.id !== game.quizmasterId) {
+      return interaction.reply({ content: '出題者のみ操作できます。', ephemeral: true });
+    }
+    await regeneratePreview(interaction);
     return;
   }
 

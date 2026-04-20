@@ -1,5 +1,6 @@
 const OpenAI = require('openai');
 const sharp = require('sharp');
+const { AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { getGame, updateGame, setGame, clearGame } = require('./gameState');
 const { buildQuizMessage, buildRoundEndMessage, buildFinalMessage } = require('./quizBuilder');
 
@@ -51,102 +52,104 @@ function normalize(str) {
   return toHiragana(str).toLowerCase().normalize('NFKC').replace(/\s+/g, '');
 }
 
-async function checkImageSafety(imageBuffer) {
-  const base64 = imageBuffer.toString('base64');
-  const result = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    max_tokens: 100,
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'image_url',
-            image_url: { url: `data:image/png;base64,${base64}` },
-          },
-          {
-            type: 'text',
-            text:
-              'Does this image contain any of the following? ' +
-              '(1) grotesque, disgusting, creepy, or disturbing content, ' +
-              '(2) clusters of holes, bumps, pores, or trypophobia-triggering patterns, ' +
-              '(3) insects, parasites, mold, rot, wounds, or bodily fluids, ' +
-              '(4) horror or dark imagery, ' +
-              '(5) densely packed repeating shapes (dots, circles, voids). ' +
-              'Reply with only "OK" if none apply, or "NG: <reason>" if any apply.',
-          },
-        ],
-      },
-    ],
-  });
-  const text = result.choices[0].message.content.trim();
-  return { ok: text.startsWith('OK'), reason: text };
+function buildPreviewRow() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('quiz_image_approve').setLabel('このイラストで開始').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId('quiz_image_reject').setLabel('再生成').setStyle(ButtonStyle.Danger),
+  );
 }
 
-async function generateAndStartRound(interaction, game, answer, channel) {
+async function generateImageBuffer(answer) {
+  const response = await openai.images.generate({
+    model: 'dall-e-3',
+    prompt: buildImagePrompt(answer),
+    n: 1,
+    size: '1024x1024',
+    response_format: 'b64_json',
+  });
+  return Buffer.from(response.data[0].b64_json, 'base64');
+}
+
+async function generatePreview(interaction, game, answer, channel) {
   const loadingMsg = await channel.send('🎨 イラストを生成中です…');
 
-  const MAX_RETRIES = 3;
   let imageBuffer;
-
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      if (attempt > 1) {
-        await loadingMsg.edit(`🎨 イラストを再生成中です… (${attempt}/${MAX_RETRIES})`);
-      }
-      const response = await openai.images.generate({
-        model: 'dall-e-3',
-        prompt: buildImagePrompt(answer),
-        n: 1,
-        size: '1024x1024',
-        response_format: 'b64_json',
-      });
-      const buf = Buffer.from(response.data[0].b64_json, 'base64');
-
-      const safety = await checkImageSafety(buf);
-      if (safety.ok) {
-        imageBuffer = buf;
-        break;
-      }
-      console.warn(`[ImageCheck] attempt ${attempt} NG: ${safety.reason}`);
-    } catch (err) {
-      console.error(err);
-      await loadingMsg.edit(`画像生成に失敗しました: ${err.message}`);
-      return;
-    }
-  }
-
-  if (!imageBuffer) {
-    await loadingMsg.edit('⚠️ 適切なイラストを生成できませんでした。お題を変えて再度お試しください。');
+  try {
+    imageBuffer = await generateImageBuffer(answer);
+  } catch (err) {
+    console.error(err);
+    await loadingMsg.edit(`画像生成に失敗しました: ${err.message}`);
     return;
   }
 
-  const pixelated = await pixelateImage(imageBuffer, 100);
+  await loadingMsg.delete().catch(() => {});
+  updateGame(interaction.guildId, { pendingAnswer: answer, pendingImageBuffer: imageBuffer });
+
+  const attachment = new AttachmentBuilder(imageBuffer, { name: 'preview.png' });
+  await interaction.followUp({
+    content: '📋 生成されたイラストを確認してください。問題がなければ「このイラストで開始」を押してください。',
+    files: [attachment],
+    components: [buildPreviewRow()],
+    ephemeral: true,
+  });
+}
+
+async function regeneratePreview(buttonInteraction) {
+  const guildId = buttonInteraction.guildId;
+  const game = getGame(guildId);
+  if (!game || !game.pendingAnswer) return;
+
+  await buttonInteraction.deferUpdate();
+
+  let imageBuffer;
+  try {
+    imageBuffer = await generateImageBuffer(game.pendingAnswer);
+  } catch (err) {
+    console.error(err);
+    await buttonInteraction.editReply({ content: `画像生成に失敗しました: ${err.message}`, files: [], components: [] });
+    return;
+  }
+
+  updateGame(guildId, { pendingImageBuffer: imageBuffer });
+
+  const attachment = new AttachmentBuilder(imageBuffer, { name: 'preview.png' });
+  await buttonInteraction.editReply({
+    content: '📋 生成されたイラストを確認してください。問題がなければ「このイラストで開始」を押してください。',
+    files: [attachment],
+    components: [buildPreviewRow()],
+  });
+}
+
+async function startApprovedRound(buttonInteraction, channel) {
+  const guildId = buttonInteraction.guildId;
+  const game = getGame(guildId);
+
+  const pixelated = await pixelateImage(game.pendingImageBuffer, 100);
   const attachment = { attachment: pixelated, name: 'quiz.png' };
 
-  setGame(interaction.guildId, {
-    answer,
-    answers: [answer],
+  setGame(guildId, {
+    answer: game.pendingAnswer,
+    answers: [game.pendingAnswer],
     hints: [],
     imageAttachment: attachment,
     quizmasterId: game.quizmasterId,
     totalRounds: game.totalRounds,
   });
-  updateGame(interaction.guildId, {
+  updateGame(guildId, {
     active: true,
     shownHints: 0,
     channelId: game.channelId || channel.id,
     roundWinners: [],
     currentRound: game.currentRound,
     scores: game.scores,
+    pendingAnswer: null,
+    pendingImageBuffer: null,
   });
 
-  const updatedGame = getGame(interaction.guildId);
+  const updatedGame = getGame(guildId);
   const messagePayload = buildQuizMessage(updatedGame);
   const sent = await channel.send(messagePayload);
-  updateGame(interaction.guildId, { messageId: sent.id });
-
-  await loadingMsg.delete().catch(() => {});
+  updateGame(guildId, { messageId: sent.id });
 }
 
 async function handleModal(interaction) {
@@ -167,7 +170,7 @@ async function handleModal(interaction) {
       await interaction.followUp({ content: '⚠️ お題にはひらがな・カタカナのみ使用できます。漢字は使えません。', ephemeral: true });
       return;
     }
-    await generateAndStartRound(interaction, game, answer, interaction.channel);
+    await generatePreview(interaction, game, answer, interaction.channel);
     return;
   }
 
@@ -249,15 +252,14 @@ async function handleModal(interaction) {
       await interaction.followUp({ content: '⚠️ お題にはひらがな・カタカナのみ使用できます。漢字は使えません。', ephemeral: true });
       return;
     }
+
     const prevAnswer = game.answer;
     const winners = game.roundWinners || [];
     const isLastRound = game.currentRound >= game.totalRounds;
 
-    // ラウンド終了メッセージを表示
     await interaction.message.edit({ ...buildRoundEndMessage(game, prevAnswer, winners), files: [] });
 
     if (isLastRound) {
-      // 最終ラウンド終了後に結果発表をチャンネルに送信
       const finalPayload = buildFinalMessage(game);
       await interaction.channel.send(finalPayload);
       clearGame(guildId);
@@ -268,9 +270,9 @@ async function handleModal(interaction) {
     updateGame(guildId, { currentRound: nextRound });
     const updatedGame = getGame(guildId);
 
-    await generateAndStartRound(interaction, updatedGame, answer, interaction.channel);
+    await generatePreview(interaction, updatedGame, answer, interaction.channel);
     return;
   }
 }
 
-module.exports = { handleModal };
+module.exports = { handleModal, startApprovedRound, regeneratePreview };

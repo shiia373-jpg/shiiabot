@@ -51,22 +51,73 @@ function normalize(str) {
   return toHiragana(str).toLowerCase().normalize('NFKC').replace(/\s+/g, '');
 }
 
+async function checkImageSafety(imageBuffer) {
+  const base64 = imageBuffer.toString('base64');
+  const result = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    max_tokens: 100,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: { url: `data:image/png;base64,${base64}` },
+          },
+          {
+            type: 'text',
+            text:
+              'Does this image contain any of the following? ' +
+              '(1) grotesque, disgusting, creepy, or disturbing content, ' +
+              '(2) clusters of holes, bumps, pores, or trypophobia-triggering patterns, ' +
+              '(3) insects, parasites, mold, rot, wounds, or bodily fluids, ' +
+              '(4) horror or dark imagery, ' +
+              '(5) densely packed repeating shapes (dots, circles, voids). ' +
+              'Reply with only "OK" if none apply, or "NG: <reason>" if any apply.',
+          },
+        ],
+      },
+    ],
+  });
+  const text = result.choices[0].message.content.trim();
+  return { ok: text.startsWith('OK'), reason: text };
+}
+
 async function generateAndStartRound(interaction, game, answer, channel) {
   const loadingMsg = await channel.send('🎨 イラストを生成中です…');
 
+  const MAX_RETRIES = 3;
   let imageBuffer;
-  try {
-    const response = await openai.images.generate({
-      model: 'dall-e-3',
-      prompt: buildImagePrompt(answer),
-      n: 1,
-      size: '1024x1024',
-      response_format: 'b64_json',
-    });
-    imageBuffer = Buffer.from(response.data[0].b64_json, 'base64');
-  } catch (err) {
-    console.error(err);
-    await loadingMsg.edit(`画像生成に失敗しました: ${err.message}`);
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      if (attempt > 1) {
+        await loadingMsg.edit(`🎨 イラストを再生成中です… (${attempt}/${MAX_RETRIES})`);
+      }
+      const response = await openai.images.generate({
+        model: 'dall-e-3',
+        prompt: buildImagePrompt(answer),
+        n: 1,
+        size: '1024x1024',
+        response_format: 'b64_json',
+      });
+      const buf = Buffer.from(response.data[0].b64_json, 'base64');
+
+      const safety = await checkImageSafety(buf);
+      if (safety.ok) {
+        imageBuffer = buf;
+        break;
+      }
+      console.warn(`[ImageCheck] attempt ${attempt} NG: ${safety.reason}`);
+    } catch (err) {
+      console.error(err);
+      await loadingMsg.edit(`画像生成に失敗しました: ${err.message}`);
+      return;
+    }
+  }
+
+  if (!imageBuffer) {
+    await loadingMsg.edit('⚠️ 適切なイラストを生成できませんでした。お題を変えて再度お試しください。');
     return;
   }
 

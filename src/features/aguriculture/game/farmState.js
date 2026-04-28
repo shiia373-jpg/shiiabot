@@ -1,6 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const { INITIAL_SLOTS } = require('./mechanics');
+const { DEFAULT_HOUSE } = require('./houseItems');
 
 const DATA_DIR = path.join(__dirname, '../data');
 
@@ -15,6 +16,10 @@ function createDefaultFarm() {
     seeds: { wheat: 5 },
     totalHarvests: 0,
     totalCoinsEarned: 0,
+    house: { ...DEFAULT_HOUSE },
+    ownedHouseItems: Object.keys(require('./houseItems').HOUSE_ITEMS).filter(
+      k => require('./houseItems').HOUSE_ITEMS[k].price === 0
+    ),
   };
 }
 

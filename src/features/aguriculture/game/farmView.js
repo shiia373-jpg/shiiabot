@@ -8,6 +8,7 @@ const {
 const { loadFarm, saveFarm } = require('./farmState');
 const { generateFarmImage } = require('./farmCanvas');
 const { CROPS } = require('./crops');
+const { HOUSE_ITEMS, DEFAULT_HOUSE, CATEGORY_NAMES } = require('./houseItems');
 const {
   MAX_SLOTS,
   getUnlockCost,
@@ -78,8 +79,13 @@ async function buildFarmPayload(userId) {
       .setDisabled(!hasReady),
     new ButtonBuilder()
       .setCustomId('farm_shop')
-      .setLabel('ショップ')
+      .setLabel('農場ショップ')
       .setEmoji('🛒')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('farm_house_shop')
+      .setLabel('家をカスタマイズ')
+      .setEmoji('🏠')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('farm_refresh')
@@ -355,6 +361,162 @@ async function handleShopButton(interaction) {
   }
 }
 
+// ─── 家ショップ ──────────────────────────────────────────────────────────────
+
+function buildHouseShopEmbed(farm) {
+  const house  = farm.house ?? { ...DEFAULT_HOUSE };
+  const owned  = farm.ownedHouseItems ?? [];
+
+  const categories = ['wall', 'roof', 'door', 'garden', 'floor', 'wallpaper'];
+  const fields = categories.map(cat => {
+    const catItems = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === cat);
+    const lines = catItems.map(([id, item]) => {
+      const isOwned    = owned.includes(id);
+      const isEquipped = house[cat] === id;
+      const prefix = isEquipped ? '✅ ' : isOwned ? '📦 ' : '';
+      const price  = item.price === 0 ? '無料' : `${item.price} G`;
+      return `${prefix}**${item.name}** — ${isOwned ? (isEquipped ? '装備中' : '所持済') : price}`;
+    });
+    return { name: `${CATEGORY_NAMES[cat]}`, value: lines.join('\n'), inline: true };
+  });
+
+  return new EmbedBuilder()
+    .setTitle('🏠 家のカスタマイズ')
+    .setDescription(`💰 所持コイン: **${farm.coins} G**\nカテゴリを選んで購入・変更できます。`)
+    .setColor(0x8B6430)
+    .addFields(...fields);
+}
+
+function buildHouseShopCategoryButtons() {
+  const categories = [
+    { id: 'wall',      label: '🧱 壁' },
+    { id: 'roof',      label: '🏠 屋根' },
+    { id: 'door',      label: '🚪 扉' },
+    { id: 'garden',    label: '🌸 庭' },
+    { id: 'floor',     label: '🪵 床' },
+    { id: 'wallpaper', label: '🖼 壁紙' },
+  ];
+  const row = new ActionRowBuilder().addComponents(
+    ...categories.map(c =>
+      new ButtonBuilder()
+        .setCustomId(`farm_house_cat_${c.id}`)
+        .setLabel(c.label)
+        .setStyle(ButtonStyle.Secondary)
+    )
+  );
+  return [row];
+}
+
+function buildHouseCategoryEmbed(farm, category) {
+  const house  = farm.house ?? { ...DEFAULT_HOUSE };
+  const owned  = farm.ownedHouseItems ?? [];
+  const items  = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === category);
+
+  const lines = items.map(([id, item]) => {
+    const isOwned    = owned.includes(id);
+    const isEquipped = house[category] === id;
+    const price      = item.price === 0 ? '無料' : `${item.price} G`;
+    const status     = isEquipped ? '✅ 装備中' : isOwned ? '📦 所持済' : price;
+    return `**${item.name}** — ${status}`;
+  });
+
+  return new EmbedBuilder()
+    .setTitle(`${CATEGORY_NAMES[category]} のカスタマイズ`)
+    .setDescription(`💰 所持コイン: **${farm.coins} G**\n\n${lines.join('\n')}`)
+    .setColor(0x8B6430);
+}
+
+function buildHouseCategoryButtons(farm, category) {
+  const house = farm.house ?? { ...DEFAULT_HOUSE };
+  const owned = farm.ownedHouseItems ?? [];
+  const items = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === category);
+  const rows  = [];
+
+  for (let i = 0; i < items.length; i += 5) {
+    rows.push(new ActionRowBuilder().addComponents(
+      items.slice(i, i + 5).map(([id, item]) => {
+        const isOwned    = owned.includes(id);
+        const isEquipped = house[category] === id;
+        const canAfford  = item.price === 0 || farm.coins >= item.price;
+        return new ButtonBuilder()
+          .setCustomId(`farm_house_buy_${id}`)
+          .setLabel(isEquipped ? `✅ ${item.name}` : isOwned ? `📦 ${item.name}` : `${item.name} (${item.price === 0 ? '無料' : item.price + 'G'})`)
+          .setStyle(isEquipped ? ButtonStyle.Success : isOwned ? ButtonStyle.Secondary : ButtonStyle.Primary)
+          .setDisabled(isEquipped || (!isOwned && !canAfford));
+      })
+    ));
+  }
+
+  rows.push(new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('farm_house_shop')
+      .setLabel('← カテゴリ選択に戻る')
+      .setStyle(ButtonStyle.Secondary)
+  ));
+
+  return rows.slice(0, 5);
+}
+
+async function handleHouseShopButton(interaction) {
+  const { customId } = interaction;
+
+  if (customId === 'farm_house_shop') {
+    const farm = await loadFarm(interaction.user.id);
+    if (!farm.house) farm.house = { ...DEFAULT_HOUSE };
+    if (!farm.ownedHouseItems) farm.ownedHouseItems = Object.keys(HOUSE_ITEMS).filter(k => HOUSE_ITEMS[k].price === 0);
+    return interaction.reply({
+      embeds: [buildHouseShopEmbed(farm)],
+      components: buildHouseShopCategoryButtons(),
+      ephemeral: true,
+    });
+  }
+
+  if (customId.startsWith('farm_house_cat_')) {
+    const category = customId.replace('farm_house_cat_', '');
+    const farm = await loadFarm(interaction.user.id);
+    if (!farm.house) farm.house = { ...DEFAULT_HOUSE };
+    if (!farm.ownedHouseItems) farm.ownedHouseItems = Object.keys(HOUSE_ITEMS).filter(k => HOUSE_ITEMS[k].price === 0);
+    return interaction.update({
+      embeds: [buildHouseCategoryEmbed(farm, category)],
+      components: buildHouseCategoryButtons(farm, category),
+    });
+  }
+
+  if (customId.startsWith('farm_house_buy_')) {
+    const itemId = customId.replace('farm_house_buy_', '');
+    const item   = HOUSE_ITEMS[itemId];
+    if (!item) return;
+
+    const farm = await loadFarm(interaction.user.id);
+    if (!farm.house) farm.house = { ...DEFAULT_HOUSE };
+    if (!farm.ownedHouseItems) farm.ownedHouseItems = Object.keys(HOUSE_ITEMS).filter(k => HOUSE_ITEMS[k].price === 0);
+
+    const isOwned = farm.ownedHouseItems.includes(itemId);
+
+    if (!isOwned) {
+      if (item.price > 0 && farm.coins < item.price) {
+        return interaction.reply({ content: `❌ コインが足りません（必要: ${item.price} G）`, ephemeral: true });
+      }
+      farm.coins -= item.price;
+      farm.ownedHouseItems.push(itemId);
+    }
+
+    // 装備
+    farm.house[item.category] = itemId;
+    await saveFarm(interaction.user.id, farm);
+
+    const priceMsg = isOwned ? '' : item.price === 0 ? '無料で入手！ ' : `${item.price} G で購入！ `;
+    await interaction.reply({
+      content: `✅ ${priceMsg}**${item.name}** を装備しました！`,
+      ephemeral: true,
+    });
+
+    // 農場画像も更新
+    const payload = await buildFarmPayload(interaction.user.id);
+    await interaction.message.edit(payload).catch(() => {});
+  }
+}
+
 module.exports = {
   buildFarmPayload,
   buildSlotPickerPayload,
@@ -365,4 +527,7 @@ module.exports = {
   buildShopEmbed,
   buildShopButtons,
   handleShopButton,
+  buildHouseShopEmbed,
+  buildHouseShopCategoryButtons,
+  handleHouseShopButton,
 };

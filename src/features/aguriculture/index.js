@@ -11,6 +11,7 @@ const {
   buildShopEmbed,
   buildShopButtons,
   handleShopButton,
+  handleHouseShopButton,
 } = require('./game/farmView');
 
 // commands/ 内のファイルを自動ロード
@@ -26,6 +27,11 @@ for (const file of fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'))) 
 async function handleButton(interaction) {
   const { customId, user } = interaction;
   if (!customId.startsWith('farm_')) return;
+
+  // 家ショップ関連ボタン
+  if (customId === 'farm_house_shop' || customId.startsWith('farm_house_')) {
+    return handleHouseShopButton(interaction);
+  }
 
   // ショップ購入・解放ボタン（interaction.update() を使うため先に分岐）
   if (customId.startsWith('farm_buy_') || customId === 'farm_unlock_slot') {

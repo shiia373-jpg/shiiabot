@@ -168,6 +168,12 @@ function generateFarmImage(farm) {
   ctx.font = 'bold 20px sans-serif';
   ctx.fillText(`${farm.coins} G`, 16, 72);
 
+  // レベル表示
+  ctx.fillStyle = '#88DDFF';
+  ctx.font = 'bold 14px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`Lv.${farm.level ?? 1}`, 16, 88);
+
   // 収穫数
   ctx.fillStyle = 'rgba(255,255,255,0.5)';
   ctx.font = '14px sans-serif';

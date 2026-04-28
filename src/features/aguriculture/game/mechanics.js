@@ -1,88 +1,91 @@
 const { CROPS } = require('./crops');
 
-// 品質ランク定義 — 収穫タイミングで決まる
-const QUALITY = {
-  S: { label: 'S', emoji: '⭐', multiplier: 2.0 },
-  A: { label: 'A', emoji: '✨', multiplier: 1.5 },
-  B: { label: 'B', emoji: '👍', multiplier: 1.2 },
-  C: { label: 'C', emoji: '😐', multiplier: 1.0 },
-  D: { label: 'D', emoji: '😢', multiplier: 0.6 },
-};
-
 const MAX_SLOTS = 9;
 const INITIAL_SLOTS = 2;
 
-// 解放コスト: index = スロット番号 (0始まり)
-const SLOT_UNLOCK_PRICES = [0, 0, 100, 250, 500, 1000, 2000, 4000, 8000];
+// 品質ランク
+const QUALITY = {
+  SS: { label: 'SS', emoji: '💎', multiplier: 4.0 },
+  S:  { label: 'S',  emoji: '⭐', multiplier: 2.5 },
+  A:  { label: 'A',  emoji: '✨', multiplier: 1.8 },
+  B:  { label: 'B',  emoji: '👍', multiplier: 1.4 },
+  C:  { label: 'C',  emoji: '😐', multiplier: 1.0 },
+};
 
-/**
- * スロットの現在状態を返す
- * @returns {'empty'|'growing'|'optimal'|'ready'|'overripe'}
- */
+// 畑スロット解放コスト
+function getUnlockCost(slots) {
+  return Math.floor(150 * Math.pow(slots, 1.6));
+}
+
+// 次レベルまでの必要EXP
+function getLevelExp(level) {
+  return Math.floor(80 * Math.pow(level, 1.7));
+}
+
+// 放置ボーナス（最大1.8倍）
+function getOfflineBonus(hours) {
+  return Math.min(1 + hours * 0.03, 1.8);
+}
+
+// 手動収穫ボーナス
+function getManualBonus() {
+  return 1.3;
+}
+
+// 自動収穫効率
+function getAutoEfficiency(level) {
+  return Math.min(0.4 + level * 0.015, 0.75);
+}
+
+// ランダム品質を決定
+function rollQuality() {
+  const rand = Math.random();
+  if (rand < 0.55) return QUALITY.C;
+  if (rand < 0.80) return QUALITY.B;
+  if (rand < 0.93) return QUALITY.A;
+  if (rand < 0.99) return QUALITY.S;
+  return QUALITY.SS;
+}
+
+// タイミングボーナス
+function getTimingBonus(elapsed, growTime) {
+  const ratio = elapsed / growTime;
+  if (ratio >= 1 && ratio <= 1.15) return 1.6;
+  if (ratio <= 1.8) return 1.0;
+  return 0.7;
+}
+
+// スロットの現在状態
 function getSlotStatus(slot) {
   if (!slot || !slot.crop) return 'empty';
   const crop = CROPS[slot.crop];
   if (!crop) return 'empty';
-
-  const elapsed = Date.now() - slot.planted_at;
-  if (elapsed < crop.growTime) return 'growing';
-  if (elapsed < crop.growTime + crop.optimalWindow) return 'optimal';
-  if (elapsed < crop.growTime + crop.optimalWindow * 3) return 'ready';
+  const ratio = (Date.now() - slot.planted_at) / crop.growTime;
+  if (ratio < 1)    return 'growing';
+  if (ratio <= 1.15) return 'optimal';
+  if (ratio <= 1.8)  return 'ready';
   return 'overripe';
 }
 
-/**
- * 収穫タイミングから品質を決定する
- * @returns {Object|null} QUALITY のいずれか、または未収穫なら null
- */
-function calcQuality(slot) {
-  const status = getSlotStatus(slot);
-  if (status === 'empty' || status === 'growing') return null;
-
-  const crop = CROPS[slot.crop];
-  const overtime = (Date.now() - slot.planted_at) - crop.growTime;
-
-  if (overtime <= crop.optimalWindow * 0.5)  return QUALITY.S;
-  if (overtime <= crop.optimalWindow)         return QUALITY.A;
-  if (overtime <= crop.optimalWindow * 2)     return QUALITY.B;
-  if (overtime <= crop.optimalWindow * 3)     return QUALITY.C;
-  return QUALITY.D;
-}
-
-/**
- * 収穫時に得られるコインと内訳を計算する
- * @param {Object} slot
- * @param {boolean} isManual true なら手動収穫ボーナスを適用
- * @returns {{ coins: number, quality: Object, bonuses: string[] }|null}
- */
+// 収穫計算
 function calcHarvest(slot, isManual = true) {
   const crop = CROPS[slot.crop];
-  const quality = calcQuality(slot);
-  if (!quality) return null;
+  if (!crop) return null;
+  const quality = rollQuality();
+  const elapsed = Date.now() - slot.planted_at;
+  const timingBonus = getTimingBonus(elapsed, crop.growTime);
+  const manualBonus = isManual ? getManualBonus() : 1.0;
 
-  let coins = crop.sellPrice * quality.multiplier;
+  const coins = Math.floor(crop.sell * quality.multiplier * timingBonus * manualBonus);
   const bonuses = [];
+  if (isManual)        bonuses.push(`🤲 手動収穫 ×${getManualBonus()}`);
+  if (timingBonus > 1) bonuses.push(`⏰ ベストタイミング ×${timingBonus}`);
+  if (timingBonus < 1) bonuses.push(`⚠️ 過熟ペナルティ ×${timingBonus}`);
 
-  // 手動収穫ボーナス +20%
-  if (isManual) {
-    coins *= 1.2;
-    bonuses.push('🤲 手動収穫 +20%');
-  }
-
-  // ベストタイミングボーナス（S品質のとき追加 +10%）
-  if (quality.label === 'S') {
-    coins *= 1.1;
-    bonuses.push('🏆 ベストタイミング +10%');
-  }
-
-  return {
-    coins: Math.floor(coins),
-    quality,
-    bonuses,
-  };
+  return { coins, quality, exp: crop.exp, bonuses };
 }
 
-/** 成長進捗 0.0〜1.0 */
+// 成長進捗 0.0〜1.0
 function getGrowProgress(slot) {
   if (!slot || !slot.crop) return 0;
   const crop = CROPS[slot.crop];
@@ -90,7 +93,7 @@ function getGrowProgress(slot) {
   return Math.min(elapsed / crop.growTime, 1.0);
 }
 
-/** 収穫可能になるまでの残り時間(ms)、すでに可能なら 0 */
+// 収穫可能になるまでの残り時間(ms)
 function getTimeToReady(slot) {
   if (!slot || !slot.crop) return null;
   const crop = CROPS[slot.crop];
@@ -98,7 +101,7 @@ function getTimeToReady(slot) {
   return remaining > 0 ? remaining : 0;
 }
 
-/** ms を「X時間Y分Z秒」形式に変換 */
+// ms → 表示文字列
 function formatTime(ms) {
   if (ms <= 0) return '今すぐ！';
   const totalSec = Math.floor(ms / 1000);
@@ -114,9 +117,13 @@ module.exports = {
   QUALITY,
   MAX_SLOTS,
   INITIAL_SLOTS,
-  SLOT_UNLOCK_PRICES,
+  getUnlockCost,
+  getLevelExp,
+  getOfflineBonus,
+  getManualBonus,
+  getAutoEfficiency,
+  getTimingBonus,
   getSlotStatus,
-  calcQuality,
   calcHarvest,
   getGrowProgress,
   getTimeToReady,

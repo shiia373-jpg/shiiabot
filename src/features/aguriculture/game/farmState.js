@@ -9,6 +9,8 @@ const userFilePath = (userId) => path.join(DATA_DIR, `${userId}.json`);
 function createDefaultFarm() {
   return {
     coins: 100,
+    level: 1,
+    exp: 0,
     slots: Array.from({ length: INITIAL_SLOTS }, () => ({ crop: null, planted_at: null })),
     seeds: { wheat: 5 },
     totalHarvests: 0,

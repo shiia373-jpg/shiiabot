@@ -1,4 +1,3 @@
-// 農場UI の全ペイロード・アクション を一元管理するモジュール
 const {
   EmbedBuilder,
   AttachmentBuilder,
@@ -11,7 +10,8 @@ const { generateFarmImage } = require('./farmCanvas');
 const { CROPS } = require('./crops');
 const {
   MAX_SLOTS,
-  SLOT_UNLOCK_PRICES,
+  getUnlockCost,
+  getLevelExp,
   getSlotStatus,
   calcHarvest,
   getGrowProgress,
@@ -23,6 +23,10 @@ const {
 
 async function buildFarmPayload(userId) {
   const farm = await loadFarm(userId);
+  // 既存データに level/exp がなければ補完
+  if (!farm.level) farm.level = 1;
+  if (!farm.exp)   farm.exp   = 0;
+
   const buf = generateFarmImage(farm);
   const attachment = new AttachmentBuilder(buf, { name: 'farm.png' });
 
@@ -43,6 +47,10 @@ async function buildFarmPayload(userId) {
   const canPlant = farm.slots.some(s => getSlotStatus(s) === 'empty')
     && Object.values(farm.seeds).some(n => n > 0);
 
+  const nextLevelExp = getLevelExp(farm.level);
+  const expBar = Math.floor((farm.exp / nextLevelExp) * 10);
+  const expBarStr = '█'.repeat(expBar) + '░'.repeat(10 - expBar);
+
   const embed = new EmbedBuilder()
     .setTitle('🌾 あなたの農場')
     .setColor(0x3D7A26)
@@ -51,6 +59,7 @@ async function buildFarmPayload(userId) {
       { name: '🌱 所持している種', value: seedLines.join(' ／ ') || 'なし', inline: true },
       { name: '💰 所持コイン', value: `${farm.coins} G`, inline: true },
       { name: '📦 解放スロット', value: `${farm.slots.length} / ${MAX_SLOTS}`, inline: true },
+      { name: `⚡ Lv.${farm.level}`, value: `${expBarStr}\n${farm.exp} / ${nextLevelExp} EXP`, inline: true },
     )
     .setImage('attachment://farm.png');
 
@@ -84,7 +93,6 @@ async function buildFarmPayload(userId) {
 
 // ─── 植えるフロー ────────────────────────────────────────────────────────────
 
-// スロット選択画面
 function buildSlotPickerPayload(farm) {
   const empty = farm.slots
     .map((s, i) => ({ s, i }))
@@ -95,7 +103,6 @@ function buildSlotPickerPayload(farm) {
     .setColor(0x3D7A26)
     .setDescription('空いているスロットを選んでください。');
 
-  // スロットボタン（最大5個/行）
   const rows = [];
   for (let i = 0; i < empty.length; i += 4) {
     const chunk = empty.slice(i, i + 4);
@@ -119,7 +126,6 @@ function buildSlotPickerPayload(farm) {
   return { embeds: [embed], files: [], components: rows.slice(0, 5) };
 }
 
-// 作物選択画面
 function buildCropPickerPayload(farm, slotIndex) {
   const available = Object.entries(farm.seeds)
     .filter(([, n]) => n > 0)
@@ -127,7 +133,7 @@ function buildCropPickerPayload(farm, slotIndex) {
     .filter(Boolean);
 
   const desc = available.map(c =>
-    `${c.emoji} **${c.name}** — 成長: ${formatTime(c.growTime)} ／ ベスト: ${formatTime(c.optimalWindow / 2)}以内`
+    `${c.emoji} **${c.name}** — 成長: ${formatTime(c.growTime)}`
   ).join('\n');
 
   const embed = new EmbedBuilder()
@@ -141,8 +147,8 @@ function buildCropPickerPayload(farm, slotIndex) {
     rows.push(new ActionRowBuilder().addComponents(
       chunk.map(c =>
         new ButtonBuilder()
-          .setCustomId(`farm_plant_crop_${slotIndex}_${c.id}`)
-          .setLabel(`${c.name} (残り${farm.seeds[c.id]}個)`)
+          .setCustomId(`farm_plant_crop_${slotIndex}_${c.id ?? Object.keys(CROPS).find(k => CROPS[k] === c)}`)
+          .setLabel(`${c.name} (残り${farm.seeds[Object.keys(CROPS).find(k => CROPS[k] === c)]}個)`)
           .setEmoji(c.emoji)
           .setStyle(ButtonStyle.Success)
       )
@@ -159,7 +165,6 @@ function buildCropPickerPayload(farm, slotIndex) {
   return { embeds: [embed], files: [], components: rows.slice(0, 5) };
 }
 
-// 植える実行
 async function plantCrop(userId, slotIndex, cropId) {
   const farm = await loadFarm(userId);
   const crop = CROPS[cropId];
@@ -178,8 +183,12 @@ async function plantCrop(userId, slotIndex, cropId) {
 
 async function harvestAll(userId) {
   const farm = await loadFarm(userId);
+  if (!farm.level) farm.level = 1;
+  if (!farm.exp)   farm.exp   = 0;
+
   const results = [];
   let totalCoins = 0;
+  let totalExp   = 0;
 
   for (let i = 0; i < farm.slots.length; i++) {
     const slot = farm.slots[i];
@@ -189,49 +198,77 @@ async function harvestAll(userId) {
     if (!result) continue;
 
     totalCoins += result.coins;
-    results.push({ slotNum: i + 1, crop: CROPS[slot.crop], result });
+    totalExp   += result.exp;
+    results.push({ slotNum: i + 1, cropId: slot.crop, crop: CROPS[slot.crop], result });
     farm.slots[i] = { crop: null, planted_at: null };
   }
 
   if (!results.length) return null;
 
   farm.coins += totalCoins;
-  farm.totalHarvests += results.length;
-  farm.totalCoinsEarned += totalCoins;
+  farm.exp   += totalExp;
+  farm.totalHarvests      += results.length;
+  farm.totalCoinsEarned   += totalCoins;
+
+  // レベルアップ処理
+  const levelUps = [];
+  let needed = getLevelExp(farm.level);
+  while (farm.exp >= needed) {
+    farm.exp -= needed;
+    farm.level++;
+    levelUps.push(farm.level);
+    needed = getLevelExp(farm.level);
+  }
+
   await saveFarm(userId, farm);
-  return { farm, results, totalCoins };
+  return { farm, results, totalCoins, totalExp, levelUps };
 }
 
-function buildHarvestEmbed(results, totalCoins, newBalance) {
+function buildHarvestEmbed(results, totalCoins, totalExp, newBalance, newLevel, levelUps) {
   const lines = results.map(({ slotNum, crop, result }) => {
     const bonus = result.bonuses.length ? `\n　${result.bonuses.join(' / ')}` : '';
-    return `#${slotNum} ${crop.emoji} **${crop.name}** — ${result.quality.emoji} **${result.quality.label}** → **${result.coins} G**${bonus}`;
+    return `#${slotNum} ${crop.emoji} **${crop.name}** — ${result.quality.emoji} **${result.quality.label}** → **${result.coins} G** / +${result.exp} EXP${bonus}`;
   });
 
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setTitle('🧺 収穫完了！')
     .setColor(0xFFD700)
     .setDescription(lines.join('\n'))
     .addFields(
       { name: '💰 今回の収益', value: `**${totalCoins} G**`, inline: true },
-      { name: '💳 残高', value: `${newBalance} G`, inline: true },
+      { name: '💳 残高',       value: `${newBalance} G`,     inline: true },
+      { name: '⚡ 獲得EXP',    value: `+${totalExp} EXP`,    inline: true },
     )
-    .setFooter({ text: '⭐ S品質を狙ってベストタイミングで収穫しよう！' });
+    .setFooter({ text: '⭐ ベストタイミングで収穫するとボーナスUP！' });
+
+  if (levelUps.length > 0) {
+    embed.addFields({
+      name: '🎉 レベルアップ！',
+      value: levelUps.map(l => `**Lv.${l}** に上がった！`).join('\n'),
+    });
+  }
+
+  return embed;
 }
 
 // ─── ショップ ────────────────────────────────────────────────────────────────
 
 function buildShopEmbed(farm) {
-  const crops = Object.values(CROPS).filter(c => farm.slots.length >= c.unlockLevel);
+  // golden は shop非表示（レア入手のみ）
+  const crops = Object.entries(CROPS)
+    .filter(([id]) => id !== 'golden')
+    .map(([id, c]) => ({ id, ...c }));
+
   const seedLines = crops.map(c => {
     const owned = farm.seeds[c.id] ?? 0;
-    return `${c.emoji} **${c.name}** — 種 ${c.seedPrice} G / 収穫 ${c.sellPrice} G～ （所持 ${owned}個）`;
+    const priceStr = c.buy === 0 ? '無料' : `${c.buy} G`;
+    return `${c.emoji} **${c.name}** — 種 ${priceStr} / 収穫 ${c.sell} G～ （所持 ${owned}個）`;
   });
 
   const nextSlot = farm.slots.length;
   const slotLine = nextSlot >= MAX_SLOTS
     ? 'スロットは最大まで解放済み'
-    : `スロット #${nextSlot + 1} 解放: **${SLOT_UNLOCK_PRICES[nextSlot]} G**`;
+    : `スロット #${nextSlot + 1} 解放: **${getUnlockCost(nextSlot)} G**`;
 
   return new EmbedBuilder()
     .setTitle('🛒 農場ショップ')
@@ -239,37 +276,40 @@ function buildShopEmbed(farm) {
     .addFields(
       { name: '🌱 種（1個）', value: seedLines.join('\n') },
       { name: '🔓 スロット解放', value: slotLine, inline: true },
-      { name: '💰 所持コイン', value: `${farm.coins} G`, inline: true },
+      { name: '💰 所持コイン',  value: `${farm.coins} G`, inline: true },
     )
     .setFooter({ text: '種を買ってスロットを増やすほど効率UP！' });
 }
 
 function buildShopButtons(farm) {
-  const crops = Object.values(CROPS).filter(c => farm.slots.length >= c.unlockLevel);
-  const rows = [];
+  const crops = Object.entries(CROPS)
+    .filter(([id]) => id !== 'golden')
+    .map(([id, c]) => ({ id, ...c }));
 
+  const rows = [];
   for (let i = 0; i < crops.length; i += 5) {
     rows.push(new ActionRowBuilder().addComponents(
       crops.slice(i, i + 5).map(c =>
         new ButtonBuilder()
           .setCustomId(`farm_buy_${c.id}`)
-          .setLabel(`${c.name} 種 (${c.seedPrice}G)`)
+          .setLabel(c.buy === 0 ? `${c.name} 種 (無料)` : `${c.name} 種 (${c.buy}G)`)
           .setEmoji(c.emoji)
           .setStyle(ButtonStyle.Primary)
-          .setDisabled(farm.coins < c.seedPrice)
+          .setDisabled(c.buy > 0 && farm.coins < c.buy)
       )
     ));
   }
 
   const nextSlot = farm.slots.length;
   if (nextSlot < MAX_SLOTS) {
+    const cost = getUnlockCost(nextSlot);
     rows.push(new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('farm_unlock_slot')
-        .setLabel(`スロット #${nextSlot + 1} 解放 (${SLOT_UNLOCK_PRICES[nextSlot]}G)`)
+        .setLabel(`スロット #${nextSlot + 1} 解放 (${cost}G)`)
         .setEmoji('🔓')
         .setStyle(ButtonStyle.Success)
-        .setDisabled(farm.coins < SLOT_UNLOCK_PRICES[nextSlot])
+        .setDisabled(farm.coins < cost)
     ));
   }
 
@@ -285,11 +325,11 @@ async function handleShopButton(interaction) {
     if (nextSlot >= MAX_SLOTS) {
       return interaction.reply({ content: '❌ これ以上解放できません。', ephemeral: true });
     }
-    const price = SLOT_UNLOCK_PRICES[nextSlot];
-    if (farm.coins < price) {
-      return interaction.reply({ content: `❌ コインが足りません（必要: ${price} G）`, ephemeral: true });
+    const cost = getUnlockCost(nextSlot);
+    if (farm.coins < cost) {
+      return interaction.reply({ content: `❌ コインが足りません（必要: ${cost} G）`, ephemeral: true });
     }
-    farm.coins -= price;
+    farm.coins -= cost;
     farm.slots.push({ crop: null, planted_at: null });
     await saveFarm(interaction.user.id, farm);
     await interaction.update({ embeds: [buildShopEmbed(farm)], components: buildShopButtons(farm) });
@@ -303,14 +343,15 @@ async function handleShopButton(interaction) {
     if (!crop) return;
 
     const farm = await loadFarm(interaction.user.id);
-    if (farm.coins < crop.seedPrice) {
-      return interaction.reply({ content: `❌ コインが足りません（必要: ${crop.seedPrice} G）`, ephemeral: true });
+    if (crop.buy > 0 && farm.coins < crop.buy) {
+      return interaction.reply({ content: `❌ コインが足りません（必要: ${crop.buy} G）`, ephemeral: true });
     }
-    farm.coins -= crop.seedPrice;
+    farm.coins -= crop.buy;
     farm.seeds[cropId] = (farm.seeds[cropId] ?? 0) + 1;
     await saveFarm(interaction.user.id, farm);
     await interaction.update({ embeds: [buildShopEmbed(farm)], components: buildShopButtons(farm) });
-    await interaction.followUp({ content: `✅ ${crop.emoji} **${crop.name}** の種を購入！（残: ${farm.coins} G）`, ephemeral: true });
+    const priceStr = crop.buy === 0 ? '無料で' : `${crop.buy} G で`;
+    await interaction.followUp({ content: `✅ ${crop.emoji} **${crop.name}** の種を${priceStr}購入！（残: ${farm.coins} G）`, ephemeral: true });
   }
 }
 

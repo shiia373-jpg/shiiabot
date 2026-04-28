@@ -4,6 +4,7 @@ const { buildGiveupMessage, buildFinalMessage, buildStopMessage } = require('./q
 const { startApprovedRound, regeneratePreview } = require('./modalHandler');
 
 async function handleButton(interaction) {
+  if (!interaction.customId.startsWith('quiz_')) return;
   const guildId = interaction.guildId;
 
   // お題入力ボタン（ラウンド開始前）

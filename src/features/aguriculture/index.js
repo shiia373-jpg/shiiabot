@@ -3,6 +3,7 @@ const path = require('path');
 const { loadFarm, setFarmMessage } = require('./game/farmState');
 const {
   buildFarmPayload,
+  buildInteriorPayload,
   buildSlotPickerPayload,
   buildCropPickerPayload,
   plantCrop,
@@ -54,6 +55,11 @@ async function handleButton(interaction) {
   await interaction.deferUpdate();
 
   try {
+    // ── 入室（室内ビュー）──
+    if (customId === 'farm_enter_room') {
+      return interaction.editReply(await buildInteriorPayload(user.id));
+    }
+
     // ── 農場表示・更新 ──
     if (customId === 'farm_refresh') {
       await interaction.editReply(await buildFarmPayload(user.id));

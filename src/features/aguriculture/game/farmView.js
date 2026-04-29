@@ -6,7 +6,7 @@ const {
   ButtonStyle,
 } = require('discord.js');
 const { loadFarm, saveFarm } = require('./farmState');
-const { generateFarmImage } = require('./farmCanvas');
+const { generateFarmImage, generateInteriorImage } = require('./farmCanvas');
 const { CROPS } = require('./crops');
 const { HOUSE_ITEMS, DEFAULT_HOUSE, CATEGORY_NAMES, MAX_FURNITURE } = require('./houseItems');
 const {
@@ -64,7 +64,7 @@ async function buildFarmPayload(userId) {
     )
     .setImage('attachment://farm.png');
 
-  const row = new ActionRowBuilder().addComponents(
+  const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('farm_plant_menu')
       .setLabel('植える')
@@ -87,6 +87,13 @@ async function buildFarmPayload(userId) {
       .setLabel('家をカスタマイズ')
       .setEmoji('🏠')
       .setStyle(ButtonStyle.Secondary),
+  );
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('farm_enter_room')
+      .setLabel('入室')
+      .setEmoji('🚪')
+      .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId('farm_refresh')
       .setLabel('更新')
@@ -94,7 +101,7 @@ async function buildFarmPayload(userId) {
       .setStyle(ButtonStyle.Secondary),
   );
 
-  return { embeds: [embed], files: [attachment], components: [row] };
+  return { embeds: [embed], files: [attachment], components: [row1, row2] };
 }
 
 // ─── 植えるフロー ────────────────────────────────────────────────────────────
@@ -228,6 +235,42 @@ async function harvestAll(userId) {
 
   await saveFarm(userId, farm);
   return { farm, results, totalCoins, totalExp, levelUps };
+}
+
+// ─── 室内ビュー ──────────────────────────────────────────────────────────────
+
+async function buildInteriorPayload(targetUserId, ownerName = null) {
+  const farm      = await loadFarm(targetUserId);
+  const buf       = generateInteriorImage(farm, ownerName);
+  const attachment = new AttachmentBuilder(buf, { name: 'interior.png' });
+
+  const furniture = (farm.house?.furniture ?? []);
+  const furnNames = furniture
+    .map(id => HOUSE_ITEMS[id])
+    .filter(Boolean)
+    .map(item => `${item.emoji} ${item.name}`);
+
+  const title = ownerName ? `🏠 ${ownerName} の部屋` : '🏠 あなたの部屋';
+  const embed = new EmbedBuilder()
+    .setTitle(title)
+    .setColor(0x6A4A2A)
+    .setImage('attachment://interior.png');
+
+  if (furnNames.length > 0) {
+    embed.addFields({ name: '🪑 設置中の家具', value: furnNames.join('　') });
+  } else {
+    embed.setDescription('家具がまだ置かれていません。');
+  }
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('farm_refresh')
+      .setLabel('← 退室')
+      .setEmoji('🚪')
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  return { embeds: [embed], files: [attachment], components: [row] };
 }
 
 function buildHarvestEmbed(results, totalCoins, totalExp, newBalance, newLevel, levelUps) {
@@ -652,6 +695,7 @@ async function handleHouseShopButton(interaction) {
 
 module.exports = {
   buildFarmPayload,
+  buildInteriorPayload,
   buildSlotPickerPayload,
   buildCropPickerPayload,
   plantCrop,

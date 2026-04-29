@@ -948,4 +948,272 @@ function generateFarmImage(farm) {
   return canvas.toBuffer('image/png');
 }
 
-module.exports = { generateFarmImage };
+// ── 室内全画面ビュー ─────────────────────────────────────────────────────────
+function generateInteriorImage(farm, ownerName = null) {
+  const W = 520, H = 420;
+  const canvas = createCanvas(W, H);
+  const ctx    = canvas.getContext('2d');
+
+  const house    = farm.house    || { ...DEFAULT_HOUSE };
+  const flrItem  = HOUSE_ITEMS[house.floor]     || HOUSE_ITEMS.floor_dirt;
+  const wpItem   = HOUSE_ITEMS[house.wallpaper] || HOUSE_ITEMS.wp_plain;
+  const doorItem = HOUSE_ITEMS[house.door]      || HOUSE_ITEMS.door_wood;
+  const furniture = (house.furniture || []).slice(0, MAX_FURNITURE);
+
+  // ── 座標定数 ──
+  const HDR  = 50;           // ヘッダー高
+  const BX1  = 130, BX2 = 390; // 奥壁 X 範囲
+  const BY1  = HDR + 32;     // 奥壁 上端
+  const BY2  = HDR + 238;    // 奥壁 下端
+  const FY   = H - 14;       // 手前床端
+
+  // ── 背景 ──
+  ctx.fillStyle = '#05050D';
+  ctx.fillRect(0, 0, W, H);
+
+  // ── ヘッダー ──
+  const hGrad = ctx.createLinearGradient(0, 0, W, HDR);
+  hGrad.addColorStop(0, '#1A1230');
+  hGrad.addColorStop(1, '#0C0A1E');
+  ctx.fillStyle = hGrad;
+  ctx.fillRect(0, 0, W, HDR);
+
+  ctx.fillStyle    = '#FFFFFF';
+  ctx.font         = 'bold 19px sans-serif';
+  ctx.textAlign    = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(ownerName ? `🏠 ${ownerName} の部屋` : '🏠 あなたの部屋', 14, HDR / 2);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.32)';
+  ctx.font      = '11px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText(`家具 ${furniture.length}/${MAX_FURNITURE}`, W - 14, HDR / 2);
+
+  // ヘッダー境界線
+  const hbGrad = ctx.createLinearGradient(0,0,W,0);
+  hbGrad.addColorStop(0,'rgba(100,80,180,0)');
+  hbGrad.addColorStop(0.3,'rgba(100,80,180,0.55)');
+  hbGrad.addColorStop(0.7,'rgba(100,80,180,0.55)');
+  hbGrad.addColorStop(1,'rgba(100,80,180,0)');
+  ctx.fillStyle = hbGrad;
+  ctx.fillRect(0, HDR - 1, W, 2);
+
+  // ── 天井（台形）──
+  const ceilGrad = ctx.createLinearGradient(W/2, HDR, W/2, BY1);
+  ceilGrad.addColorStop(0, hexAlpha(wpItem.color, 0.18));
+  ceilGrad.addColorStop(1, hexAlpha(wpItem.color, 0.42));
+  ctx.beginPath();
+  ctx.moveTo(0, HDR); ctx.lineTo(W, HDR);
+  ctx.lineTo(BX2, BY1); ctx.lineTo(BX1, BY1);
+  ctx.closePath();
+  ctx.fillStyle = ceilGrad;
+  ctx.fill();
+  // 天井影
+  const cShad = ctx.createLinearGradient(W/2, HDR, W/2, BY1);
+  cShad.addColorStop(0, 'rgba(0,0,0,0.6)');
+  cShad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.beginPath();
+  ctx.moveTo(0, HDR); ctx.lineTo(W, HDR);
+  ctx.lineTo(BX2, BY1); ctx.lineTo(BX1, BY1); ctx.closePath();
+  ctx.fillStyle = cShad; ctx.fill();
+
+  // ── 左壁（台形）──
+  const lwGrad = ctx.createLinearGradient(0, 0, BX1, 0);
+  lwGrad.addColorStop(0, hexAlpha(wpItem.color, 0.32));
+  lwGrad.addColorStop(1, hexAlpha(wpItem.color, 0.58));
+  ctx.beginPath();
+  ctx.moveTo(0, HDR); ctx.lineTo(BX1, BY1);
+  ctx.lineTo(BX1, BY2); ctx.lineTo(0, FY);
+  ctx.closePath(); ctx.fillStyle = lwGrad; ctx.fill();
+  // 左端シャドウ
+  const lwSh = ctx.createLinearGradient(BX1-50, 0, BX1, 0);
+  lwSh.addColorStop(0, 'rgba(0,0,0,0)');
+  lwSh.addColorStop(1, 'rgba(0,0,0,0.32)');
+  ctx.beginPath();
+  ctx.moveTo(0, HDR); ctx.lineTo(BX1, BY1); ctx.lineTo(BX1, BY2); ctx.lineTo(0, FY);
+  ctx.closePath(); ctx.fillStyle = lwSh; ctx.fill();
+
+  // ── 右壁（台形）──
+  const rwGrad = ctx.createLinearGradient(BX2, 0, W, 0);
+  rwGrad.addColorStop(0, hexAlpha(wpItem.color, 0.58));
+  rwGrad.addColorStop(1, hexAlpha(wpItem.color, 0.32));
+  ctx.beginPath();
+  ctx.moveTo(W, HDR); ctx.lineTo(BX2, BY1);
+  ctx.lineTo(BX2, BY2); ctx.lineTo(W, FY);
+  ctx.closePath(); ctx.fillStyle = rwGrad; ctx.fill();
+  // 右端シャドウ
+  const rwSh = ctx.createLinearGradient(BX2, 0, BX2+50, 0);
+  rwSh.addColorStop(0, 'rgba(0,0,0,0.32)');
+  rwSh.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.beginPath();
+  ctx.moveTo(W, HDR); ctx.lineTo(BX2, BY1); ctx.lineTo(BX2, BY2); ctx.lineTo(W, FY);
+  ctx.closePath(); ctx.fillStyle = rwSh; ctx.fill();
+
+  // ── 奥壁（壁紙）──
+  ctx.fillStyle = wpItem.color;
+  ctx.fillRect(BX1, BY1, BX2 - BX1, BY2 - BY1);
+  // 壁紙パターン
+  if (house.wallpaper === 'wp_flower') {
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    for (let fx = BX1 + 18; fx < BX2 - 8; fx += 32) {
+      for (let fy = BY1 + 12; fy < BY2 - 6; fy += 26) {
+        ctx.beginPath(); ctx.arc(fx, fy, 6, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  } else if (house.wallpaper === 'wp_wood') {
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth = 1;
+    for (let fy = BY1 + 20; fy < BY2; fy += 20) {
+      ctx.beginPath(); ctx.moveTo(BX1, fy); ctx.lineTo(BX2, fy); ctx.stroke();
+    }
+  }
+
+  // 奥壁：窓2つ
+  const winW = 58, winH = 56;
+  const winY = BY1 + (BY2 - BY1) * 0.12;
+  drawWindow(ctx, BX1 + 22, winY, winW, winH, wpItem.color, flrItem.color);
+  drawWindow(ctx, BX2 - 22 - winW, winY, winW, winH, wpItem.color, flrItem.color);
+
+  // 奥壁：扉（中央）
+  const dW = 42, dH = 62;
+  const dX = (BX1 + BX2) / 2 - dW / 2;
+  const dY = BY2 - dH;
+  ctx.fillStyle = '#120A04';
+  ctx.fillRect(dX - 4, dY - 3, dW + 8, dH + 3);
+  ctx.fillStyle = doorItem.color;
+  ctx.fillRect(dX, dY, dW, dH);
+  ctx.strokeStyle = hexAlpha(doorItem.knob, 0.4);
+  ctx.lineWidth = 1.4;
+  ctx.strokeRect(dX + 5, dY + 5, dW - 10, dH / 2 - 8);
+  ctx.strokeRect(dX + 5, dY + dH / 2 + 2, dW - 10, dH / 2 - 9);
+  ctx.beginPath();
+  ctx.arc(dX + dW - 9, dY + dH * 0.54, 4.5, 0, Math.PI * 2);
+  ctx.fillStyle = doorItem.knob;
+  ctx.fill();
+
+  // ── 床（パース台形）──
+  const flrGrad = ctx.createLinearGradient(W/2, BY2, W/2, FY);
+  flrGrad.addColorStop(0, hexAlpha(flrItem.color, 0.65));
+  flrGrad.addColorStop(1, flrItem.color);
+  ctx.beginPath();
+  ctx.moveTo(0, FY); ctx.lineTo(W, FY);
+  ctx.lineTo(BX2, BY2); ctx.lineTo(BX1, BY2);
+  ctx.closePath(); ctx.fillStyle = flrGrad; ctx.fill();
+
+  // 床板ライン（横・奥行き感）
+  ctx.strokeStyle = 'rgba(0,0,0,0.11)'; ctx.lineWidth = 0.8;
+  for (let t = 0.2; t < 1; t += 0.2) {
+    const lx1 = BX1 + (0 - BX1) * t;
+    const lx2 = BX2 + (W - BX2) * t;
+    const ly  = BY2 + (FY - BY2) * t;
+    ctx.beginPath(); ctx.moveTo(lx1, ly); ctx.lineTo(lx2, ly); ctx.stroke();
+  }
+  // 床板ライン（縦・消失点）
+  for (let i = 1; i <= 5; i++) {
+    const t  = i / 6;
+    const bx = BX1 + (BX2 - BX1) * t;
+    const fx = W * t;
+    ctx.beginPath(); ctx.moveTo(bx, BY2); ctx.lineTo(fx, FY); ctx.stroke();
+  }
+  // 床光沢
+  const flrGls = ctx.createLinearGradient(0, BY2, W, FY);
+  flrGls.addColorStop(0, 'rgba(255,255,255,0)');
+  flrGls.addColorStop(0.35, 'rgba(255,255,255,0.09)');
+  flrGls.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.beginPath();
+  ctx.moveTo(0,FY); ctx.lineTo(W,FY); ctx.lineTo(BX2,BY2); ctx.lineTo(BX1,BY2);
+  ctx.closePath(); ctx.fillStyle = flrGls; ctx.fill();
+
+  // ── 部屋のエッジライン ──
+  ctx.strokeStyle = 'rgba(0,0,0,0.38)'; ctx.lineWidth = 1.8;
+  ctx.beginPath(); ctx.moveTo(BX1, BY1); ctx.lineTo(BX1, BY2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(BX2, BY1); ctx.lineTo(BX2, BY2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(BX1, BY1); ctx.lineTo(0,   HDR); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(BX2, BY1); ctx.lineTo(W,   HDR); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(BX1, BY2); ctx.lineTo(0,   FY);  ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(BX2, BY2); ctx.lineTo(W,   FY);  ctx.stroke();
+  // 巾木
+  ctx.strokeStyle = 'rgba(0,0,0,0.28)'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(BX1, BY2); ctx.lineTo(0, FY);  ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(BX2, BY2); ctx.lineTo(W, FY);  ctx.stroke();
+
+  // ── 家具配置（パース座標変換）──
+  // fx: 0=左端〜1=右端, fy: 0=奥壁〜1=手前
+  function perspPos(fx, fy) {
+    const lx = BX1 + (0   - BX1) * fy;
+    const rx = BX2 + (W   - BX2) * fy;
+    const sx = lx + (rx - lx) * fx;
+    const sy = BY2 + (FY - BY2) * fy;
+    return { x: sx, y: sy, scale: 0.45 + fy * 0.95 };
+  }
+
+  const positions = [
+    { fx: 0.12, fy: 0.08 }, { fx: 0.88, fy: 0.08 },
+    { fx: 0.40, fy: 0.08 }, { fx: 0.60, fy: 0.08 },
+    { fx: 0.18, fy: 0.44 }, { fx: 0.82, fy: 0.44 },
+    { fx: 0.35, fy: 0.78 }, { fx: 0.65, fy: 0.78 },
+  ];
+
+  // 奥→手前の順で描画（ペインターズアルゴリズム）
+  const sortedFurn = furniture
+    .map((id, i) => ({ id, pos: positions[i % positions.length] }))
+    .sort((a, b) => a.pos.fy - b.pos.fy);
+
+  for (const { id, pos } of sortedFurn) {
+    const item = HOUSE_ITEMS[id];
+    if (!item) continue;
+
+    // シャンデリアは天井から吊るす
+    if (id === 'furn_chandelier') {
+      const cx = W / 2;
+      const cy = BY1 + (BY2 - BY1) * 0.1;
+      ctx.strokeStyle = 'rgba(180,140,60,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(cx, BY1 + 5); ctx.lineTo(cx, cy - 20); ctx.stroke();
+      ctx.shadowColor = '#FFD700'; ctx.shadowBlur = 24;
+      ctx.font = '38px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#FFFFFF'; ctx.fillText(item.emoji, cx, cy);
+      ctx.shadowBlur = 0; continue;
+    }
+
+    const { x, y, scale } = perspPos(pos.fx, pos.fy);
+    const fs = Math.floor(32 * scale);
+
+    // 床影
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 3, fs * 0.44, fs * 0.12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // アイコン
+    ctx.shadowColor = 'rgba(255,210,100,0.28)';
+    ctx.shadowBlur  = fs * 0.28;
+    ctx.font         = `${fs}px sans-serif`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle    = '#FFFFFF';
+    ctx.fillText(item.emoji, x, y);
+    ctx.shadowBlur = 0;
+
+    // 家具名
+    const nfs = Math.max(7, Math.floor(9 * scale));
+    ctx.fillStyle    = 'rgba(255,255,255,0.52)';
+    ctx.font         = `${nfs}px sans-serif`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(item.name, x, y + 2);
+  }
+
+  // 空の場合
+  if (furniture.length === 0) {
+    ctx.fillStyle    = 'rgba(255,255,255,0.25)';
+    ctx.font         = '15px sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('家具がまだ置かれていません', W / 2, BY2 + (FY - BY2) * 0.45);
+  }
+
+  ctx.textBaseline = 'alphabetic';
+  return canvas.toBuffer('image/png');
+}
+
+module.exports = { generateFarmImage, generateInteriorImage };

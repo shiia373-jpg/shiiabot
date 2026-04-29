@@ -61,6 +61,23 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 
+  if (interaction.isAnySelectMenu()) {
+    for (const mod of botModules) {
+      if (!mod.handleSelectMenu) continue;
+      try {
+        await mod.handleSelectMenu(interaction);
+      } catch (err) {
+        console.error('[SelectMenu Error]:', err);
+        const msg = { content: '⚠️ 選択処理中にエラーが発生しました。', ephemeral: true };
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp(msg).catch(() => {});
+        } else {
+          await interaction.reply(msg).catch(() => {});
+        }
+      }
+    }
+  }
+
   if (interaction.isModalSubmit()) {
     for (const mod of botModules) {
       if (!mod.handleModal) continue;

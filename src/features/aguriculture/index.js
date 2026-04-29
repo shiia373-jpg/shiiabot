@@ -4,6 +4,7 @@ const { loadFarm, setFarmMessage } = require('./game/farmState');
 const {
   buildFarmPayload,
   buildInteriorPayload,
+  buildVisitPickerPayload,
   buildSlotPickerPayload,
   buildCropPickerPayload,
   plantCrop,
@@ -58,6 +59,11 @@ async function handleButton(interaction) {
     // ── 入室（室内ビュー）──
     if (customId === 'farm_enter_room') {
       return interaction.editReply(await buildInteriorPayload(user.id));
+    }
+
+    // ── 訪問メニュー（ユーザー選択）──
+    if (customId === 'farm_visit_menu') {
+      return interaction.followUp(buildVisitPickerPayload());
     }
 
     // ── 農場表示・更新 ──
@@ -125,4 +131,24 @@ async function handleButton(interaction) {
   }
 }
 
-module.exports = { commands, handleButton };
+// ─── セレクトメニュー処理 ─────────────────────────────────────────────────────
+
+async function handleSelectMenu(interaction) {
+  const { customId } = interaction;
+  if (!customId.startsWith('farm_')) return;
+
+  if (customId === 'farm_visit_select') {
+    const target = interaction.users.first();
+    if (!target) return;
+
+    if (target.bot) {
+      return interaction.update({ content: '❌ Bot の部屋には入れません。', components: [] });
+    }
+
+    const ownerName = target.id === interaction.user.id ? null : target.displayName ?? target.username;
+    const payload   = await buildInteriorPayload(target.id, ownerName);
+    return interaction.update({ ...payload, content: null });
+  }
+}
+
+module.exports = { commands, handleButton, handleSelectMenu };

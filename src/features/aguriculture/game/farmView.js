@@ -4,6 +4,7 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  UserSelectMenuBuilder,
 } = require('discord.js');
 const { loadFarm, saveFarm } = require('./farmState');
 const { generateFarmImage, generateInteriorImage } = require('./farmCanvas');
@@ -94,6 +95,11 @@ async function buildFarmPayload(userId) {
       .setLabel('入室')
       .setEmoji('🚪')
       .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('farm_visit_menu')
+      .setLabel('訪問')
+      .setEmoji('🏘️')
+      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('farm_refresh')
       .setLabel('更新')
@@ -271,6 +277,21 @@ async function buildInteriorPayload(targetUserId, ownerName = null) {
   );
 
   return { embeds: [embed], files: [attachment], components: [row] };
+}
+
+function buildVisitPickerPayload() {
+  const row = new ActionRowBuilder().addComponents(
+    new UserSelectMenuBuilder()
+      .setCustomId('farm_visit_select')
+      .setPlaceholder('訪問するプレイヤーを選んでください…')
+      .setMinValues(1)
+      .setMaxValues(1)
+  );
+  return {
+    content: '🏘️ 誰の部屋を訪問しますか？',
+    components: [row],
+    ephemeral: true,
+  };
 }
 
 function buildHarvestEmbed(results, totalCoins, totalExp, newBalance, newLevel, levelUps) {
@@ -696,6 +717,7 @@ async function handleHouseShopButton(interaction) {
 module.exports = {
   buildFarmPayload,
   buildInteriorPayload,
+  buildVisitPickerPayload,
   buildSlotPickerPayload,
   buildCropPickerPayload,
   plantCrop,

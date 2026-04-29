@@ -28,8 +28,10 @@ async function handleButton(interaction) {
   const { customId, user } = interaction;
   if (!customId.startsWith('farm_')) return;
 
-  // 家ショップ関連ボタン
-  if (customId === 'farm_house_shop' || customId.startsWith('farm_house_')) {
+  // 家ショップ・家具関連ボタン
+  if (customId === 'farm_house_shop' ||
+      customId.startsWith('farm_house_') ||
+      customId.startsWith('farm_furn_')) {
     return handleHouseShopButton(interaction);
   }
 

@@ -1,6 +1,6 @@
 const { createCanvas } = require('@napi-rs/canvas');
 const { CROPS }        = require('./crops');
-const { HOUSE_ITEMS, DEFAULT_HOUSE } = require('./houseItems');
+const { HOUSE_ITEMS, DEFAULT_HOUSE, MAX_FURNITURE } = require('./houseItems');
 const {
   MAX_SLOTS,
   getSlotStatus,
@@ -10,13 +10,15 @@ const {
 } = require('./mechanics');
 
 // ── キャンバス定数 ──────────────────────────────────────────────────────────
-const COLS      = 3;
-const CELL_W    = 160;
-const CELL_H    = 155;
-const PAD       = 10;
-const HEADER_H  = 55;
-const HOUSE_H   = 255;   // 家セクション高さ
-const CANVAS_W  = PAD + COLS * (CELL_W + PAD);  // 510px
+const COLS        = 3;
+const CELL_W      = 160;
+const CELL_H      = 155;
+const PAD         = 10;
+const HEADER_H    = 55;
+const HOUSE_EXT_H = 255;  // 外観セクション高さ
+const INTERIOR_H  = 90;   // 室内ビュー高さ
+const HOUSE_H     = HOUSE_EXT_H + INTERIOR_H;
+const CANVAS_W    = PAD + COLS * (CELL_W + PAD);  // 510px
 
 // ── カラーパレット ──────────────────────────────────────────────────────────
 const SLOT_PAL = {
@@ -378,6 +380,114 @@ function drawHouse(ctx, house, startY) {
   ctx.fillRect(chimneyX - 3, chimneyY - 5, 24, 7);
 }
 
+// ── 室内ビュー ───────────────────────────────────────────────────────────────
+function drawInterior(ctx, house, startY) {
+  if (!house) house = { ...DEFAULT_HOUSE };
+  const items      = HOUSE_ITEMS;
+  const floorItem  = items[house.floor]     || items.floor_dirt;
+  const wpItem     = items[house.wallpaper] || items.wp_plain;
+  const furniture  = house.furniture || [];
+
+  const panelW = 300;
+  const panelH = INTERIOR_H - 10;
+  const px     = (CANVAS_W - panelW) / 2;
+  const py     = startY + 6;
+  const floorH = 20;
+
+  // パネル枠
+  ctx.strokeStyle = '#5A4020';
+  ctx.lineWidth   = 1.5;
+  roundRect(ctx, px - 1, py - 1, panelW + 2, panelH + 2, 6);
+  ctx.strokeStyle = '#3A2810';
+  ctx.stroke();
+
+  // 壁紙背景
+  ctx.fillStyle = wpItem.color;
+  roundRect(ctx, px, py, panelW, panelH - floorH, 0);
+  ctx.fill();
+
+  // 床
+  ctx.fillStyle = floorItem.color;
+  ctx.fillRect(px, py + panelH - floorH, panelW, floorH);
+
+  // 床板ライン
+  ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+  ctx.lineWidth   = 0.8;
+  for (let lx = px + 30; lx < px + panelW; lx += 30) {
+    ctx.beginPath();
+    ctx.moveTo(lx, py + panelH - floorH);
+    ctx.lineTo(lx, py + panelH);
+    ctx.stroke();
+  }
+
+  // 壁紙パターン（花柄のみ）
+  if (house.wallpaper === 'wp_flower') {
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    for (let fx = px + 16; fx < px + panelW - 8; fx += 28) {
+      for (let fy = py + 8; fy < py + panelH - floorH - 6; fy += 22) {
+        ctx.beginPath();
+        ctx.arc(fx, fy, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // 天井ライン
+  ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+  ctx.lineWidth   = 1;
+  ctx.beginPath();
+  ctx.moveTo(px, py + panelH - floorH);
+  ctx.lineTo(px + panelW, py + panelH - floorH);
+  ctx.stroke();
+
+  // ラベル
+  ctx.fillStyle    = 'rgba(255,255,255,0.5)';
+  ctx.font         = 'bold 10px sans-serif';
+  ctx.textAlign    = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText('🏠 室内', px + 6, py - 2 + 10);
+
+  // 家具アイコン
+  if (furniture.length === 0) {
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.font      = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('家具がありません', px + panelW / 2, py + (panelH - floorH) / 2 + 4);
+  } else {
+    const maxPerRow = 8;
+    const iconSize  = 28;
+    const iconPad   = (panelW - maxPerRow * iconSize) / (maxPerRow + 1);
+    const iconRowY  = py + (panelH - floorH) / 2;
+
+    furniture.slice(0, MAX_FURNITURE).forEach((id, i) => {
+      const fi   = items[id];
+      if (!fi) return;
+      const col  = i % maxPerRow;
+      const row  = Math.floor(i / maxPerRow);
+      const ix   = px + iconPad + col * (iconSize + iconPad) + iconSize / 2;
+      const iy   = iconRowY + row * (iconSize + 6) - 4;
+
+      ctx.font         = `${iconSize - 4}px sans-serif`;
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle    = '#FFFFFF';
+      ctx.fillText(fi.emoji, ix, iy);
+      ctx.textBaseline = 'alphabetic';
+
+      // 家具名（小）
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.font      = '8px sans-serif';
+      ctx.fillText(fi.name, ix, iy + iconSize / 2 - 1);
+    });
+  }
+
+  // スロット数表示
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font      = '10px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText(`${furniture.length}/${MAX_FURNITURE}`, px + panelW - 6, py + panelH - 4);
+}
+
 function drawGarden(ctx, gardenId, cx, groundY) {
   switch (gardenId) {
     case 'garden_flowers': {
@@ -535,6 +645,9 @@ function generateFarmImage(farm) {
   ctx.fillRect(0, groundY, CANVAS_W, 30);
 
   drawHouse(ctx, farm.house, HEADER_H + 8);
+
+  // ── 室内ビューパネル ──
+  drawInterior(ctx, farm.house, HEADER_H + HOUSE_EXT_H);
 
   // ── 区切り ──
   const divGrad = ctx.createLinearGradient(0, 0, CANVAS_W, 0);

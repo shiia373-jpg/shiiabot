@@ -391,52 +391,59 @@ function drawHouse(ctx, house, startY) {
     }
   }
 
-  // ヤミーの壁パターン（小さなおばけシルエット＋ハート・星の装飾）
+  // ヤミー壁：オーロラカーテン＋星座パターン
   if (house.wall === 'wall_yamii') {
-    const ghostPos = [
-      { x: wallX + 28,  y: wallY + 20, s: 0.85 }, { x: wallX + 88,  y: wallY + 14, s: 0.75 },
-      { x: wallX + 148, y: wallY + 22, s: 0.80 }, { x: wallX + 202, y: wallY + 12, s: 0.70 },
-      { x: wallX + 56,  y: wallY + 66, s: 0.78 }, { x: wallX + 118, y: wallY + 68, s: 0.82 },
-      { x: wallX + 174, y: wallY + 60, s: 0.72 },
+    ctx.save();
+    ctx.rect(wallX, wallY, WALL_W, WALL_H);
+    ctx.clip();
+    // オーロラカーテン（縦方向のグラデーション帯）
+    const auroraBands = [
+      { x: wallX + 20,  col1: 'rgba(80,200,255,0.22)',  col2: 'rgba(80,200,255,0)' },
+      { x: wallX + 70,  col1: 'rgba(160,80,255,0.18)', col2: 'rgba(160,80,255,0)' },
+      { x: wallX + 125, col1: 'rgba(80,255,180,0.20)', col2: 'rgba(80,255,180,0)' },
+      { x: wallX + 175, col1: 'rgba(255,160,80,0.15)', col2: 'rgba(255,160,80,0)' },
+      { x: wallX + 215, col1: 'rgba(80,180,255,0.18)', col2: 'rgba(80,180,255,0)' },
     ];
-    ghostPos.forEach(gp => {
+    auroraBands.forEach(ab => {
+      const ag = ctx.createLinearGradient(ab.x - 18, wallY, ab.x + 18, wallY);
+      ag.addColorStop(0, ab.col2); ag.addColorStop(0.5, ab.col1); ag.addColorStop(1, ab.col2);
+      ctx.fillStyle = ag;
+      ctx.fillRect(ab.x - 18, wallY, 36, WALL_H);
+    });
+    // 星座ドット（輝く星）
+    const starDots = [
+      [wallX+22, wallY+18], [wallX+58, wallY+12], [wallX+98, wallY+20], [wallX+140, wallY+10],
+      [wallX+178, wallY+16], [wallX+214, wallY+22], [wallX+38, wallY+62], [wallX+78, wallY+55],
+      [wallX+118, wallY+68], [wallX+158, wallY+58], [wallX+196, wallY+66], [wallX+48, wallY+38],
+      [wallX+90, wallY+42], [wallX+132, wallY+36], [wallX+170, wallY+44], [wallX+10, wallY+44],
+    ];
+    // 星座ライン
+    ctx.strokeStyle = 'rgba(200,220,255,0.20)'; ctx.lineWidth = 0.8;
+    [[0,1],[1,2],[2,3],[3,4],[4,5],[6,7],[7,8],[8,9],[9,10],[11,12],[12,13],[13,14],[0,11],[5,14]].forEach(([a,b]) => {
+      ctx.beginPath(); ctx.moveTo(starDots[a][0], starDots[a][1]); ctx.lineTo(starDots[b][0], starDots[b][1]); ctx.stroke();
+    });
+    // 星ドット描画
+    starDots.forEach(([sx, sy], i) => {
+      const sz = i % 3 === 0 ? 2.2 : 1.4;
+      const sCol = i % 4 === 0 ? 'rgba(255,240,160,0.90)' : i % 4 === 1 ? 'rgba(160,200,255,0.85)' : i % 4 === 2 ? 'rgba(200,160,255,0.85)' : 'rgba(160,255,200,0.80)';
       ctx.save();
-      ctx.globalAlpha = 0.18;
-      drawYamii(ctx, gp.x, gp.y - 6, 10 * gp.s, 0.0);
+      ctx.shadowColor = sCol; ctx.shadowBlur = 5;
+      ctx.fillStyle = sCol;
+      ctx.beginPath(); ctx.arc(sx, sy, sz, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     });
-    // ★ ♡ ✦ デコレーション
-    const wallDecos = [
-      { x: wallX + 58,  y: wallY + 14, sym: '♡', col: 'rgba(255,170,200,0.38)', sz: 8 },
-      { x: wallX + 120, y: wallY + 10, sym: '★', col: 'rgba(220,180,255,0.42)', sz: 7 },
-      { x: wallX + 180, y: wallY + 18, sym: '♡', col: 'rgba(255,170,200,0.38)', sz: 8 },
-      { x: wallX + 40,  y: wallY + 54, sym: '✦', col: 'rgba(200,200,255,0.38)', sz: 7 },
-      { x: wallX + 100, y: wallY + 50, sym: '★', col: 'rgba(220,180,255,0.42)', sz: 7 },
-      { x: wallX + 158, y: wallY + 52, sym: '♡', col: 'rgba(255,170,200,0.38)', sz: 8 },
-      { x: wallX + 220, y: wallY + 58, sym: '✦', col: 'rgba(200,200,255,0.38)', sz: 7 },
+    // 半透明ヤミーシルエット（大きめ・輝く）
+    const ghostPos2 = [
+      { x: wallX + 42, y: wallY + 36, s: 1.0 }, { x: wallX + 118, y: wallY + 30, s: 0.90 },
+      { x: wallX + 192, y: wallY + 38, s: 0.95 },
     ];
-    wallDecos.forEach(d => {
+    ghostPos2.forEach(gp => {
       ctx.save();
-      ctx.font = `bold ${d.sz}px sans-serif`;
-      ctx.fillStyle = d.col;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(d.sym, d.x, d.y);
+      ctx.globalAlpha = 0.22;
+      drawYamii(ctx, gp.x, gp.y, 14 * gp.s, 0.0);
       ctx.restore();
     });
-    // ハートのキラキラを追加
-    const heartSparks = [
-      { x: wallX + 72,  y: wallY + 36 }, { x: wallX + 130, y: wallY + 30 },
-      { x: wallX + 195, y: wallY + 42 },
-    ];
-    heartSparks.forEach(h => {
-      ctx.save();
-      ctx.font = 'bold 7px sans-serif';
-      ctx.fillStyle = 'rgba(255,120,180,0.55)';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('♡', h.x, h.y);
-      ctx.restore();
-    });
+    ctx.restore();
   }
 
   // 壁右端シャドウ
@@ -487,28 +494,50 @@ function drawHouse(ctx, house, startY) {
   ctx.fill();
   ctx.shadowBlur = 0;
 
-  // ヤミーの扉：上パネル部分にヤミーの顔 ＋ 扉枠に★♡デコ
+  // ヤミー扉：豪華ゴールド枠＋宝石＋ヤミー
   if (house.door === 'door_yamii') {
+    // 金縁フレーム（外側）
+    const goldFrame = ctx.createLinearGradient(doorX - 6, doorY, doorX + doorW + 6, doorY);
+    goldFrame.addColorStop(0,   '#A07800');
+    goldFrame.addColorStop(0.3, '#FFE060');
+    goldFrame.addColorStop(0.7, '#FFD030');
+    goldFrame.addColorStop(1,   '#A07800');
+    ctx.strokeStyle = goldFrame; ctx.lineWidth = 4;
     ctx.save();
-    ctx.globalAlpha = 0.90;
-    drawYamii(ctx, doorX + doorW / 2, doorY + doorH * 0.24, 10, 0.6);
+    ctx.shadowColor = 'rgba(255,200,50,0.65)'; ctx.shadowBlur = 8;
+    ctx.strokeRect(doorX - 4, doorY - 4, doorW + 8, doorH + 4);
     ctx.restore();
-    // 扉枠のキラキラデコ
-    const doorDecos = [
-      { x: doorX - 5,       y: doorY + 6,  sym: '★', sz: 7, col: 'rgba(220,180,255,0.85)' },
-      { x: doorX + doorW + 5, y: doorY + 6, sym: '★', sz: 7, col: 'rgba(220,180,255,0.85)' },
-      { x: doorX + 2,       y: doorY + doorH * 0.55, sym: '♡', sz: 6, col: 'rgba(255,160,200,0.80)' },
-      { x: doorX + doorW - 2, y: doorY + doorH * 0.55, sym: '♡', sz: 6, col: 'rgba(255,160,200,0.80)' },
+    // 角の宝石
+    const cornerGems = [
+      { x: doorX - 4,       y: doorY - 4,       col: '#FF80B8', glow: '#FFB0D8' },
+      { x: doorX + doorW + 4, y: doorY - 4,     col: '#80C8FF', glow: '#B0E0FF' },
+      { x: doorX - 4,       y: doorY + doorH,   col: '#80FFB8', glow: '#B0FFD8' },
+      { x: doorX + doorW + 4, y: doorY + doorH, col: '#FFD060', glow: '#FFE898' },
     ];
-    doorDecos.forEach(d => {
+    cornerGems.forEach(g => {
       ctx.save();
-      ctx.font = `bold ${d.sz}px sans-serif`;
-      ctx.fillStyle = d.col;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(d.sym, d.x, d.y);
+      ctx.shadowColor = g.glow; ctx.shadowBlur = 8;
+      ctx.fillStyle = g.col;
+      ctx.beginPath(); ctx.arc(g.x, g.y, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.70)';
+      ctx.beginPath(); ctx.arc(g.x - 1.2, g.y - 1.4, 1.5, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     });
+    // 扉上部に星座魔法陣
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.strokeStyle = '#FFD060'; ctx.lineWidth = 0.8;
+    const mcx = doorX + doorW/2, mcy = doorY + doorH * 0.22, mr = doorW * 0.32;
+    ctx.beginPath(); ctx.arc(mcx, mcy, mr, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(mcx, mcy, mr * 0.60, 0, Math.PI*2); ctx.stroke();
+    for (let pi = 0; pi < 6; pi++) {
+      const pa = (pi / 6) * Math.PI * 2 - Math.PI/2;
+      ctx.beginPath(); ctx.moveTo(mcx, mcy); ctx.lineTo(mcx + Math.cos(pa)*mr, mcy + Math.sin(pa)*mr); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+    // ヤミー（上パネル中央）
+    drawYamii(ctx, doorX + doorW / 2, doorY + doorH * 0.24, 11, 0.8);
   }
 
   // ── 屋根 ──
@@ -541,42 +570,54 @@ function drawHouse(ctx, house, startY) {
   ctx.lineTo(roofPeakX + 30, roofPeakY + ROOF_H * 0.4);
   ctx.closePath();
   ctx.fill();
-  // ヤミイ屋根：屋根全体にピンクの霧とヤミイが乗っている
+  // ヤミー屋根：多重魔法オーラ＋月冠ヤミー
   if (house.roof === 'roof_yamii') {
-    // 屋根に柔らかいピンクオーラ
-    const roofAura = ctx.createRadialGradient(roofPeakX, roofPeakY + 20, 5, roofPeakX, roofPeakY + 20, 85);
-    roofAura.addColorStop(0,   'rgba(255,170,210,0.42)');
-    roofAura.addColorStop(0.6, 'rgba(255,140,190,0.15)');
-    roofAura.addColorStop(1,   'rgba(0,0,0,0)');
-    ctx.fillStyle = roofAura;
-    ctx.beginPath();
-    ctx.moveTo(roofPeakX, roofPeakY);
-    ctx.lineTo(wallX - 18, wallY);
-    ctx.lineTo(wallX + WALL_W + 18, wallY);
-    ctx.closePath();
-    ctx.fill();
-    // 棟の頂点に座るヤミー（かわいい）
-    drawYamii(ctx, roofPeakX, roofPeakY - 16, 16, 0.9);
-    // 屋根面にきらめく星ドット
-    const roofStars = [
-      { rx: -70, ry: 0.65 }, { rx: -40, ry: 0.45 }, { rx: -18, ry: 0.30 },
-      { rx:  18, ry: 0.30 }, { rx:  42, ry: 0.45 }, { rx:  72, ry: 0.65 },
-      { rx: -55, ry: 0.78 }, { rx:  0,  ry: 0.80 }, { rx:  56, ry: 0.78 },
+    // 内側の金色オーラ
+    const roofAura1 = ctx.createRadialGradient(roofPeakX, roofPeakY + 28, 0, roofPeakX, roofPeakY + 28, 70);
+    roofAura1.addColorStop(0,   'rgba(255,220,80,0.42)');
+    roofAura1.addColorStop(0.5, 'rgba(255,180,60,0.18)');
+    roofAura1.addColorStop(1,   'rgba(255,160,40,0)');
+    ctx.fillStyle = roofAura1;
+    ctx.beginPath(); ctx.moveTo(roofPeakX, roofPeakY); ctx.lineTo(wallX - 18, wallY); ctx.lineTo(wallX + WALL_W + 18, wallY); ctx.closePath(); ctx.fill();
+    // 外側の青白いオーラ
+    const roofAura2 = ctx.createRadialGradient(roofPeakX, roofPeakY + 28, 20, roofPeakX, roofPeakY + 28, 105);
+    roofAura2.addColorStop(0,   'rgba(120,180,255,0.22)');
+    roofAura2.addColorStop(0.6, 'rgba(80,140,255,0.10)');
+    roofAura2.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.fillStyle = roofAura2;
+    ctx.beginPath(); ctx.moveTo(roofPeakX, roofPeakY); ctx.lineTo(wallX - 18, wallY); ctx.lineTo(wallX + WALL_W + 18, wallY); ctx.closePath(); ctx.fill();
+    // 屋根面に魔法のルーン星
+    const roofStarData = [
+      { rx: -78, ry: 0.68, sz: 2.2, col: 'rgba(255,220,100,0.90)' },
+      { rx: -52, ry: 0.48, sz: 1.8, col: 'rgba(160,200,255,0.88)' },
+      { rx: -26, ry: 0.32, sz: 1.4, col: 'rgba(200,160,255,0.85)' },
+      { rx:   0, ry: 0.82, sz: 2.0, col: 'rgba(255,220,100,0.90)' },
+      { rx:  26, ry: 0.32, sz: 1.4, col: 'rgba(160,255,200,0.85)' },
+      { rx:  54, ry: 0.48, sz: 1.8, col: 'rgba(255,160,120,0.85)' },
+      { rx:  80, ry: 0.68, sz: 2.2, col: 'rgba(255,220,100,0.90)' },
+      { rx: -38, ry: 0.80, sz: 1.6, col: 'rgba(160,200,255,0.82)' },
+      { rx:  40, ry: 0.80, sz: 1.6, col: 'rgba(200,160,255,0.82)' },
     ];
-    roofStars.forEach((rs, i) => {
+    roofStarData.forEach(rs => {
       const sx = roofPeakX + rs.rx;
       const sy = roofPeakY + (wallY - roofPeakY) * rs.ry;
-      const isBig = i % 3 === 0;
-      const isHeart = i % 4 === 1;
       ctx.save();
-      ctx.globalAlpha = isBig ? 0.78 : 0.60;
-      ctx.font = `bold ${isBig ? 9 : 7}px sans-serif`;
-      ctx.fillStyle = isBig ? '#FFD0E8' : isHeart ? '#FFB0D0' : '#FFE8F4';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(isHeart ? '♡' : isBig ? '✦' : '·', sx, sy);
+      ctx.shadowColor = rs.col; ctx.shadowBlur = 8;
+      ctx.fillStyle = rs.col;
+      ctx.beginPath(); ctx.arc(sx, sy, rs.sz, 0, Math.PI * 2); ctx.fill();
+      // 十字輝き
+      ctx.strokeStyle = rs.col; ctx.lineWidth = rs.sz * 0.6;
+      ctx.beginPath(); ctx.moveTo(sx - rs.sz*2, sy); ctx.lineTo(sx + rs.sz*2, sy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(sx, sy - rs.sz*2); ctx.lineTo(sx, sy + rs.sz*2); ctx.stroke();
       ctx.restore();
     });
+    // 頂点に大きなヤミー（ティアラ付き）
+    drawYamii(ctx, roofPeakX, roofPeakY - 18, 18, 1.0);
+    // 左右に小さなヤミー
+    ctx.save(); ctx.globalAlpha = 0.75;
+    drawYamii(ctx, roofPeakX - 55, roofPeakY + (wallY - roofPeakY)*0.52 - 8, 10, 0.7);
+    drawYamii(ctx, roofPeakX + 55, roofPeakY + (wallY - roofPeakY)*0.52 - 8, 10, 0.7);
+    ctx.restore();
   }
 
   // 瓦ライン
@@ -724,51 +765,98 @@ function drawInterior(ctx, house, startY) {
       }
     }
   }
-  // ヤミー壁紙：小さなヤミーシルエット＋ピンクのハート・星アクセント
+  // ヤミー壁紙：深夜空＋星座コンステレーション
   if (house.wallpaper === 'wp_yamii') {
-    let wpToggle = 0;
-    for (let gx = px + 20; gx < px + panelW - 10; gx += 38) {
-      for (let gy = py + 14; gy < py + panelH - floorH - 8; gy += 28) {
-        wpToggle++;
-        if (wpToggle % 3 === 0) {
-          ctx.save();
-          ctx.font = 'bold 8px sans-serif';
-          const sym = wpToggle % 6 === 0 ? '♡' : wpToggle % 9 === 0 ? '✿' : '★';
-          ctx.fillStyle = wpToggle % 6 === 0 ? 'rgba(255,120,170,0.50)' : 'rgba(255,170,210,0.45)';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(sym, gx, gy);
-          ctx.restore();
-        } else {
-          ctx.save();
-          ctx.globalAlpha = 0.16;
-          drawYamii(ctx, gx, gy - 5, 9, 0.0);
-          ctx.restore();
-        }
-      }
-    }
-  }
-  // ヤミー床：ピンクのハート・星・花のかわいいパターン
-  if (house.floor === 'floor_yamii') {
-    const floorY = py + panelH - floorH + 7;
-    const floorDecos = [
-      { dx:  0, sym: '♡', col: 'rgba(255,110,160,0.55)' },
-      { dx: 20, sym: '✿', col: 'rgba(255,160,200,0.48)' },
-      { dx: 40, sym: '♡', col: 'rgba(255,130,175,0.50)' },
-      { dx: 60, sym: '★', col: 'rgba(255,180,215,0.45)' },
-      { dx: 80, sym: '✿', col: 'rgba(255,150,190,0.48)' },
-    ];
-    for (let fx = px + 10; fx < px + panelW - 10; fx += 100) {
-      floorDecos.forEach(d => {
-        ctx.save();
-        ctx.font = 'bold 8px sans-serif';
-        ctx.fillStyle = d.col;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(d.sym, fx + d.dx, floorY);
-        ctx.restore();
+    const wpArea = { x: px, y: py, w: panelW, h: panelH - floorH };
+    ctx.save();
+    ctx.beginPath(); ctx.rect(wpArea.x, wpArea.y, wpArea.w, wpArea.h); ctx.clip();
+    // 深い紺色の夜空グラデーション
+    const nightGrad = ctx.createLinearGradient(wpArea.x, wpArea.y, wpArea.x, wpArea.y + wpArea.h);
+    nightGrad.addColorStop(0,   'rgba(10,12,38,0.78)');
+    nightGrad.addColorStop(0.55,'rgba(18,22,60,0.68)');
+    nightGrad.addColorStop(1,   'rgba(25,18,50,0.60)');
+    ctx.fillStyle = nightGrad;
+    ctx.fillRect(wpArea.x, wpArea.y, wpArea.w, wpArea.h);
+    // 星々（多数・色とりどり）
+    const wpStars = [];
+    for (let si = 0; si < 55; si++) {
+      wpStars.push({
+        x: wpArea.x + 4 + (si * 47 + si * si * 3) % (wpArea.w - 8),
+        y: wpArea.y + 4 + (si * 37 + si * 7) % (wpArea.h - 8),
+        r: si % 5 === 0 ? 2.0 : si % 3 === 0 ? 1.5 : 1.0,
+        col: si % 4 === 0 ? 'rgba(255,240,160,0.95)' : si % 4 === 1 ? 'rgba(160,200,255,0.90)' : si % 4 === 2 ? 'rgba(200,160,255,0.88)' : 'rgba(160,255,200,0.85)',
       });
     }
+    wpStars.forEach(s => {
+      ctx.save();
+      ctx.shadowColor = s.col; ctx.shadowBlur = s.r > 1.5 ? 6 : 3;
+      ctx.fillStyle = s.col;
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+      if (s.r > 1.5) {
+        ctx.strokeStyle = s.col; ctx.lineWidth = 0.6;
+        ctx.beginPath(); ctx.moveTo(s.x - s.r*3, s.y); ctx.lineTo(s.x + s.r*3, s.y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(s.x, s.y - s.r*3); ctx.lineTo(s.x, s.y + s.r*3); ctx.stroke();
+      }
+      ctx.restore();
+    });
+    // 星座ライン（細く輝く）
+    const consLines = [
+      [wpStars[0], wpStars[4]], [wpStars[4], wpStars[9]], [wpStars[9], wpStars[14]],
+      [wpStars[2], wpStars[7]], [wpStars[7], wpStars[12]], [wpStars[12], wpStars[17]],
+      [wpStars[1], wpStars[6]], [wpStars[6], wpStars[11]], [wpStars[20], wpStars[25]],
+      [wpStars[25], wpStars[30]], [wpStars[15], wpStars[20]],
+    ];
+    ctx.strokeStyle = 'rgba(180,200,255,0.20)'; ctx.lineWidth = 0.7;
+    consLines.forEach(([a, b]) => {
+      if (!a || !b) return;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    });
+    // 流れ星
+    [[wpArea.x + 40, wpArea.y + 20, 55, -8], [wpArea.x + 180, wpArea.y + 15, 45, -6]].forEach(([sx, sy, len, dy]) => {
+      const sg = ctx.createLinearGradient(sx, sy, sx + len, sy + dy);
+      sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(1, 'rgba(255,255,255,0.80)');
+      ctx.strokeStyle = sg; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + len, sy + dy); ctx.stroke();
+    });
+    // 小さなヤミーシルエット（夜空に浮かぶ）
+    [[wpArea.x + 55, wpArea.y + 35], [wpArea.x + 175, wpArea.y + 28], [wpArea.x + 255, wpArea.y + 42]].forEach(([gx, gy]) => {
+      ctx.save(); ctx.globalAlpha = 0.30;
+      drawYamii(ctx, gx, gy, 10, 0.0);
+      ctx.restore();
+    });
+    ctx.restore();
+  }
+  // ヤミー床：魔法陣パターン
+  if (house.floor === 'floor_yamii') {
+    const floorTop = py + panelH - floorH;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(px, floorTop, panelW, floorH); ctx.clip();
+    // 床に黄金の魔法陣サークル
+    const circles = [
+      { cx: px + panelW * 0.25, cy: floorTop + floorH * 0.55, r: floorH * 0.40 },
+      { cx: px + panelW * 0.50, cy: floorTop + floorH * 0.55, r: floorH * 0.40 },
+      { cx: px + panelW * 0.75, cy: floorTop + floorH * 0.55, r: floorH * 0.40 },
+    ];
+    circles.forEach(c => {
+      // 外円
+      ctx.shadowColor = 'rgba(255,200,80,0.60)'; ctx.shadowBlur = 5;
+      ctx.strokeStyle = 'rgba(255,210,80,0.65)'; ctx.lineWidth = 0.9;
+      ctx.beginPath(); ctx.arc(c.cx, c.cy, c.r, 0, Math.PI * 2); ctx.stroke();
+      // 内円
+      ctx.strokeStyle = 'rgba(200,160,255,0.55)'; ctx.lineWidth = 0.7;
+      ctx.beginPath(); ctx.arc(c.cx, c.cy, c.r * 0.65, 0, Math.PI * 2); ctx.stroke();
+      // 放射線（6角）
+      ctx.strokeStyle = 'rgba(255,210,80,0.38)'; ctx.lineWidth = 0.6;
+      for (let ri = 0; ri < 6; ri++) {
+        const ra = (ri / 6) * Math.PI * 2;
+        ctx.beginPath(); ctx.moveTo(c.cx, c.cy); ctx.lineTo(c.cx + Math.cos(ra)*c.r, c.cy + Math.sin(ra)*c.r); ctx.stroke();
+      }
+      // 中心ドット
+      ctx.fillStyle = 'rgba(255,220,100,0.80)'; ctx.shadowBlur = 4;
+      ctx.beginPath(); ctx.arc(c.cx, c.cy, 1.5, 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.shadowBlur = 0;
+    ctx.restore();
   }
 
   // 天井・壁境界ライン
@@ -1417,29 +1505,79 @@ function drawYamii(ctx, x, y, r, glowAlpha = 0.8) {
   ctx.fillRect(cx - r * 2, cy - r * 2, r * 4, r * 4);
   ctx.restore();
 
-  // ── リボン（頭の上！）
+  // ── 魔法のティアラ（頭上）
   if (r >= 10) {
-    const rbX = cx + r * 0.30;
-    const rbY = cy - r * 0.82;
-    const rbR = r * 0.22;
-    // 左羽
+    const crX = cx;
+    const crY = cy - r * 0.90;
+    const crW = r * 0.58;
+    ctx.save();
+    // ティアラバンド（ゴールド）
+    const bandGrad = ctx.createLinearGradient(crX - crW, crY + r*0.06, crX + crW, crY + r*0.06);
+    bandGrad.addColorStop(0,   '#C8A000');
+    bandGrad.addColorStop(0.5, '#FFE060');
+    bandGrad.addColorStop(1,   '#C8A000');
+    ctx.fillStyle = bandGrad;
+    roundRect(ctx, crX - crW, crY, crW * 2, r * 0.13, r * 0.05);
+    ctx.fill();
+    // 中央の大きな宝石（サファイア青）
+    ctx.shadowColor = '#80B8FF'; ctx.shadowBlur = r * 0.35;
+    const gemGrad = ctx.createRadialGradient(crX - r*0.03, crY - r*0.07, 0, crX, crY - r*0.04, r*0.14);
+    gemGrad.addColorStop(0,   '#E0F0FF');
+    gemGrad.addColorStop(0.5, '#60A8FF');
+    gemGrad.addColorStop(1,   '#1860C8');
+    ctx.fillStyle = gemGrad;
+    ctx.beginPath();
+    ctx.arc(crX, crY - r * 0.04, r * 0.14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    // 中央宝石ハイライト
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.beginPath();
+    ctx.arc(crX - r*0.04, crY - r*0.10, r*0.05, 0, Math.PI * 2);
+    ctx.fill();
+    // 左の小宝石（ローズ）
+    ctx.shadowColor = '#FFB0D8'; ctx.shadowBlur = r * 0.25;
+    ctx.fillStyle = '#FF80B8';
+    ctx.beginPath();
+    ctx.arc(crX - crW * 0.52, crY + r*0.04, r * 0.08, 0, Math.PI * 2);
+    ctx.fill();
+    // 右の小宝石（エメラルド）
+    ctx.shadowColor = '#80FFB0'; ctx.shadowBlur = r * 0.25;
+    ctx.fillStyle = '#40C870';
+    ctx.beginPath();
+    ctx.arc(crX + crW * 0.52, crY + r*0.04, r * 0.08, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    // ティアラから出る細い輝き
+    if (r >= 16) {
+      [[crX, crY - r*0.04, '#80C8FF'], [crX - crW*0.52, crY+r*0.04, '#FFB0D8'], [crX + crW*0.52, crY+r*0.04, '#80FFB8']].forEach(([gx, gy, gc]) => {
+        ctx.strokeStyle = gc; ctx.lineWidth = r * 0.025; ctx.globalAlpha = 0.70;
+        [-0.4, 0, 0.4].forEach(ang => {
+          ctx.beginPath();
+          ctx.moveTo(gx, gy);
+          ctx.lineTo(gx + Math.cos(-Math.PI/2 + ang) * r*0.28, gy + Math.sin(-Math.PI/2 + ang) * r*0.28);
+          ctx.stroke();
+        });
+        ctx.globalAlpha = 1;
+      });
+    }
+    ctx.restore();
+  }
+  // ── リボン（ティアラの下）
+  if (r >= 12) {
+    const rbX = cx + r * 0.28;
+    const rbY = cy - r * 0.76;
+    const rbR = r * 0.18;
     ctx.fillStyle = '#FF70A8';
     ctx.beginPath();
-    ctx.ellipse(rbX - rbR * 0.9, rbY, rbR, rbR * 0.62, -0.5, 0, Math.PI * 2);
+    ctx.ellipse(rbX - rbR * 0.9, rbY, rbR, rbR * 0.60, -0.5, 0, Math.PI * 2);
     ctx.fill();
-    // 右羽
     ctx.beginPath();
-    ctx.ellipse(rbX + rbR * 0.9, rbY, rbR, rbR * 0.62, 0.5, 0, Math.PI * 2);
+    ctx.ellipse(rbX + rbR * 0.9, rbY, rbR, rbR * 0.60, 0.5, 0, Math.PI * 2);
     ctx.fill();
-    // 中心ノット
     ctx.fillStyle = '#FF90B8';
     ctx.beginPath();
-    ctx.arc(rbX, rbY, rbR * 0.38, 0, Math.PI * 2);
-    ctx.fill();
-    // ハイライト
-    ctx.fillStyle = 'rgba(255,255,255,0.45)';
-    ctx.beginPath();
-    ctx.ellipse(rbX - rbR * 0.9 - rbR*0.15, rbY - rbR*0.18, rbR*0.35, rbR*0.20, -0.5, 0, Math.PI*2);
+    ctx.arc(rbX, rbY, rbR * 0.36, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -1910,149 +2048,186 @@ function drawGarden(ctx, gardenId, cx, groundY) {
       break;
     }
     case 'garden_yamii': {
-      // ── ヤミーの庭 ── ピンク基調のメルヘン・フェアリーガーデン！
+      // ── ヤミーの庭 ── 水晶魔法庭園・ファンタジー！
 
-      // 桜色の地面オーラ
-      const yGnd = ctx.createRadialGradient(cx, groundY - 4, 8, cx, groundY - 4, 120);
-      yGnd.addColorStop(0,   'rgba(255,190,220,0.52)');
-      yGnd.addColorStop(0.45,'rgba(255,160,200,0.24)');
-      yGnd.addColorStop(0.75,'rgba(255,210,230,0.10)');
-      yGnd.addColorStop(1,   'rgba(0,0,0,0)');
-      ctx.fillStyle = yGnd;
-      ctx.beginPath();
-      ctx.ellipse(cx, groundY - 4, 120, 26, 0, 0, Math.PI * 2);
-      ctx.fill();
+      // オーロラ空（背景の広いグラデーション）
+      const skyAurora = ctx.createLinearGradient(cx - 130, groundY - 90, cx + 130, groundY - 10);
+      skyAurora.addColorStop(0,   'rgba(20,0,60,0.55)');
+      skyAurora.addColorStop(0.3, 'rgba(60,0,120,0.40)');
+      skyAurora.addColorStop(0.6, 'rgba(0,60,120,0.35)');
+      skyAurora.addColorStop(1,   'rgba(0,0,0,0)');
+      ctx.fillStyle = skyAurora;
+      ctx.beginPath(); ctx.ellipse(cx, groundY - 50, 135, 90, 0, 0, Math.PI * 2); ctx.fill();
 
-      // 🌸 ピンク虹のアーチ（桜色グラデーション）
-      const rainbowBands = [
-        { r: 82, col: 'rgba(255,100,140,0.55)' },
-        { r: 75, col: 'rgba(255,140,175,0.55)' },
-        { r: 68, col: 'rgba(255,180,210,0.58)' },
-        { r: 61, col: 'rgba(255,210,230,0.55)' },
-        { r: 54, col: 'rgba(255,170,200,0.55)' },
-        { r: 47, col: 'rgba(255,130,170,0.58)' },
-        { r: 40, col: 'rgba(255,90,140,0.55)'  },
-      ];
-      const rainbowY = groundY - 8;
-      rainbowBands.forEach(b => {
+      // オーロラカーテン（縦の光の帯）
+      [
+        { x: cx - 95, col1: 'rgba(80,255,200,0.28)', col2: 'rgba(80,255,200,0)' },
+        { x: cx - 45, col1: 'rgba(160,80,255,0.22)', col2: 'rgba(160,80,255,0)' },
+        { x: cx + 10, col1: 'rgba(80,160,255,0.25)', col2: 'rgba(80,160,255,0)' },
+        { x: cx + 65, col1: 'rgba(255,80,200,0.20)', col2: 'rgba(255,80,200,0)' },
+        { x: cx + 110, col1: 'rgba(80,255,160,0.22)', col2: 'rgba(80,255,160,0)' },
+      ].forEach(ab => {
+        const ag = ctx.createLinearGradient(ab.x - 16, groundY - 90, ab.x + 16, groundY - 90);
+        ag.addColorStop(0, ab.col2); ag.addColorStop(0.5, ab.col1); ag.addColorStop(1, ab.col2);
+        const vg = ctx.createLinearGradient(ab.x, groundY - 90, ab.x, groundY - 5);
+        vg.addColorStop(0, ab.col1); vg.addColorStop(1, ab.col2);
         ctx.save();
-        ctx.strokeStyle = b.col;
-        ctx.lineWidth = 7;
-        ctx.beginPath();
-        ctx.arc(cx, rainbowY, b.r, Math.PI, 0);
-        ctx.stroke();
+        ctx.globalAlpha = 0.85;
+        ctx.fillStyle = vg;
+        ctx.fillRect(ab.x - 16, groundY - 90, 32, 85);
         ctx.restore();
       });
 
-      // 🌸 桜の木（左側）
-      const treeX = cx - 88;
-      // 幹
-      ctx.fillStyle = '#8B5E3C';
-      ctx.fillRect(treeX - 4, groundY - 38, 8, 38);
-      // 枝
-      ctx.strokeStyle = '#8B5E3C'; ctx.lineWidth = 3; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(treeX, groundY - 28); ctx.lineTo(treeX - 14, groundY - 42); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(treeX, groundY - 32); ctx.lineTo(treeX + 12, groundY - 44); ctx.stroke();
-      ctx.lineCap = 'butt';
-      // 桜の花かたまり
-      [[treeX, groundY - 48, 22], [treeX - 14, groundY - 46, 14], [treeX + 12, groundY - 48, 15]].forEach(([bx, by, br]) => {
-        const blossomGrad = ctx.createRadialGradient(bx, by, 0, bx, by, br);
-        blossomGrad.addColorStop(0, 'rgba(255,200,220,0.95)');
-        blossomGrad.addColorStop(0.6,'rgba(255,160,190,0.85)');
-        blossomGrad.addColorStop(1, 'rgba(255,130,170,0.50)');
-        ctx.fillStyle = blossomGrad;
-        ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fill();
-      });
-      // 花びら散らし
-      for (let pi = 0; pi < 8; pi++) {
-        const pa = (pi / 8) * Math.PI * 2;
-        const pd = 18 + (pi % 3) * 6;
-        ctx.fillStyle = 'rgba(255,180,210,0.65)';
-        ctx.beginPath();
-        ctx.ellipse(treeX + Math.cos(pa)*pd, groundY - 44 + Math.sin(pa)*pd*0.5, 3, 2, pa, 0, Math.PI*2);
-        ctx.fill();
-      }
+      // 地面の魔法陣グロー
+      const magicGlow = ctx.createRadialGradient(cx, groundY - 2, 5, cx, groundY - 2, 110);
+      magicGlow.addColorStop(0,    'rgba(180,120,255,0.55)');
+      magicGlow.addColorStop(0.35, 'rgba(100,60,200,0.28)');
+      magicGlow.addColorStop(0.70, 'rgba(60,30,120,0.12)');
+      magicGlow.addColorStop(1,    'rgba(0,0,0,0)');
+      ctx.fillStyle = magicGlow;
+      ctx.beginPath(); ctx.ellipse(cx, groundY - 2, 110, 24, 0, 0, Math.PI * 2); ctx.fill();
 
-      // かわいいピンク花（右側 + 中央脇）
-      const yFlowers = [
-        { x: cx - 50, c: '#FFB0D0', h: 14 }, { x: cx - 30, c: '#FFD0E8', h: 11 },
-        { x: cx + 48, c: '#FF90C0', h: 13 }, { x: cx + 72, c: '#FFCCE8', h: 15 },
-        { x: cx + 98, c: '#FFB0D8', h: 17 },
+      // 地面魔法陣（大きな円＋六角）
+      ctx.save();
+      ctx.shadowColor = 'rgba(160,100,255,0.75)'; ctx.shadowBlur = 10;
+      ctx.strokeStyle = 'rgba(200,150,255,0.55)'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.ellipse(cx, groundY - 1, 88, 12, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = 'rgba(160,220,255,0.40)'; ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.ellipse(cx, groundY - 1, 60, 8, 0, 0, Math.PI * 2); ctx.stroke();
+      for (let hi = 0; hi < 6; hi++) {
+        const ha = (hi / 6) * Math.PI * 2;
+        const hx = cx + Math.cos(ha) * 88;
+        const hy = groundY - 1 + Math.sin(ha) * 12;
+        ctx.fillStyle = 'rgba(220,180,255,0.80)';
+        ctx.beginPath(); ctx.arc(hx, hy, 2.5, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+
+      // 水晶柱（左側）
+      const crystalDefs = [
+        { x: cx - 105, h: 42, w: 10, col1: '#A0C8FF', col2: '#6090E0', glow: 'rgba(120,160,255,0.55)' },
+        { x: cx - 90,  h: 28, w: 7,  col1: '#C8A0FF', col2: '#8060C0', glow: 'rgba(160,120,255,0.50)' },
+        { x: cx + 86,  h: 38, w: 9,  col1: '#A0FFD8', col2: '#50C090', glow: 'rgba(100,220,180,0.55)' },
+        { x: cx + 102, h: 24, w: 7,  col1: '#FFD0A0', col2: '#E09040', glow: 'rgba(255,180,100,0.50)' },
       ];
-      yFlowers.forEach(f => {
-        ctx.strokeStyle = '#AADDAA'; ctx.lineWidth = 1.8; ctx.setLineDash([]);
+      crystalDefs.forEach(cr => {
+        const crystalGrad = ctx.createLinearGradient(cr.x - cr.w/2, groundY - cr.h, cr.x + cr.w/2, groundY);
+        crystalGrad.addColorStop(0,   cr.col1);
+        crystalGrad.addColorStop(0.5, cr.col2);
+        crystalGrad.addColorStop(1,   cr.col2);
+        ctx.save();
+        ctx.shadowColor = cr.glow; ctx.shadowBlur = 14;
+        // 水晶の六角柱
         ctx.beginPath();
-        ctx.moveTo(f.x, groundY);
-        ctx.quadraticCurveTo(f.x + (f.x < cx ? -4 : 4), groundY - f.h * 0.5, f.x, groundY - f.h);
-        ctx.stroke();
+        ctx.moveTo(cr.x, groundY - cr.h - cr.w * 0.5);          // top tip
+        ctx.lineTo(cr.x + cr.w * 0.5, groundY - cr.h * 0.65);   // top right
+        ctx.lineTo(cr.x + cr.w * 0.5, groundY);                  // bottom right
+        ctx.lineTo(cr.x - cr.w * 0.5, groundY);                  // bottom left
+        ctx.lineTo(cr.x - cr.w * 0.5, groundY - cr.h * 0.65);   // top left
+        ctx.closePath();
+        ctx.fillStyle = crystalGrad; ctx.fill();
+        // 水晶ハイライト
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.beginPath();
+        ctx.moveTo(cr.x - cr.w * 0.15, groundY - cr.h - cr.w * 0.3);
+        ctx.lineTo(cr.x - cr.w * 0.35, groundY - cr.h * 0.65);
+        ctx.lineTo(cr.x - cr.w * 0.10, groundY - cr.h * 0.70);
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+      });
+
+      // 魔法の虹アーチ（虹色グラデーション）
+      const arcBands = [
+        { r: 78, col: 'rgba(255,80,80,0.45)' },   { r: 70, col: 'rgba(255,160,40,0.45)' },
+        { r: 62, col: 'rgba(255,240,40,0.45)' },  { r: 54, col: 'rgba(80,220,80,0.45)' },
+        { r: 46, col: 'rgba(40,160,255,0.48)' },  { r: 38, col: 'rgba(120,80,255,0.50)' },
+        { r: 30, col: 'rgba(220,80,220,0.50)' },
+      ];
+      arcBands.forEach(b => {
+        ctx.save(); ctx.strokeStyle = b.col; ctx.lineWidth = 7;
+        ctx.shadowColor = b.col; ctx.shadowBlur = 4;
+        ctx.beginPath(); ctx.arc(cx, groundY - 6, b.r, Math.PI, 0); ctx.stroke();
+        ctx.restore();
+      });
+
+      // 輝く花（宝石花）
+      const gemFlowers = [
+        { x: cx - 58, col: '#FF80C0', h: 16 }, { x: cx - 36, col: '#FFD060', h: 12 },
+        { x: cx + 34, col: '#80FFD0', h: 13 }, { x: cx + 58, col: '#A080FF', h: 15 },
+      ];
+      gemFlowers.forEach(f => {
+        // 茎
+        ctx.strokeStyle = 'rgba(80,200,100,0.85)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(f.x, groundY); ctx.lineTo(f.x, groundY - f.h); ctx.stroke();
+        // 花びら（宝石）
         for (let p = 0; p < 5; p++) {
           const fa = (p / 5) * Math.PI * 2;
+          ctx.save();
+          ctx.shadowColor = f.col; ctx.shadowBlur = 8;
+          ctx.fillStyle = f.col;
           ctx.beginPath();
-          ctx.ellipse(f.x + Math.cos(fa)*5, groundY - f.h + Math.sin(fa)*3.5, 4.5, 3, fa, 0, Math.PI*2);
-          ctx.fillStyle = f.c;
+          ctx.ellipse(f.x + Math.cos(fa) * 5.5, groundY - f.h + Math.sin(fa) * 4, 5, 3.2, fa, 0, Math.PI * 2);
           ctx.fill();
+          ctx.restore();
         }
-        ctx.beginPath(); ctx.arc(f.x, groundY - f.h, 3, 0, Math.PI*2);
-        ctx.fillStyle = '#FFF5CC'; ctx.fill();
-      });
-
-      // 浮遊ハート・星（ピンク系のみ）
-      const floatSyms = [
-        { x: cx - 52, y: groundY - 58, sym: '♡', col: 'rgba(255,110,160,0.92)', sz: 12 },
-        { x: cx + 50, y: groundY - 54, sym: '♡', col: 'rgba(255,130,175,0.88)', sz: 11 },
-        { x: cx - 18, y: groundY - 76, sym: '♡', col: 'rgba(255,150,190,0.85)', sz: 10 },
-        { x: cx + 24, y: groundY - 78, sym: '★', col: 'rgba(255,190,215,0.88)', sz: 9 },
-        { x: cx - 82, y: groundY - 40, sym: '✿', col: 'rgba(255,160,200,0.82)', sz: 9 },
-        { x: cx + 90, y: groundY - 38, sym: '✿', col: 'rgba(255,140,185,0.82)', sz: 9 },
-        { x: cx - 38, y: groundY - 42, sym: '·', col: 'rgba(255,200,220,0.90)', sz: 10 },
-        { x: cx + 36, y: groundY - 38, sym: '·', col: 'rgba(255,210,230,0.90)', sz: 10 },
-      ];
-      floatSyms.forEach(s => {
+        // 花芯
         ctx.save();
-        ctx.font = `bold ${s.sz}px sans-serif`;
-        ctx.fillStyle = s.col;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.shadowColor = s.col; ctx.shadowBlur = 6;
-        ctx.fillText(s.sym, s.x, s.y);
+        ctx.shadowColor = '#FFFF80'; ctx.shadowBlur = 6;
+        ctx.fillStyle = '#FFFF80';
+        ctx.beginPath(); ctx.arc(f.x, groundY - f.h, 3.5, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
       });
 
-      // ピンクの蝶 × 2
-      [[cx + 40, groundY - 44, 0.5], [cx - 30, groundY - 55, -0.4]].forEach(([bx, by, rot]) => {
+      // ゴールドの魔法パーティクル
+      const fantasySparkColors = [
+        'rgba(255,220,80,0.95)', 'rgba(160,200,255,0.92)', 'rgba(200,160,255,0.90)',
+        'rgba(80,255,200,0.88)', 'rgba(255,160,200,0.90)',
+      ];
+      for (let si = 0; si < 28; si++) {
+        const sa = (si / 28) * Math.PI * 2;
+        const sd = 38 + (si % 6) * 14;
+        const sx = cx + Math.cos(sa) * sd;
+        const sy = groundY - 18 + Math.sin(sa) * sd * 0.20 - (si % 6) * 8;
+        const sc = fantasySparkColors[si % fantasySparkColors.length];
+        const sr = si % 4 === 0 ? 2.5 : si % 4 === 1 ? 1.8 : 1.3;
         ctx.save();
-        ctx.fillStyle = 'rgba(255,160,200,0.85)';
-        ctx.beginPath(); ctx.ellipse(bx,      by,     10, 5.5, rot,      0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(bx + 8,  by - 2, 7,  4,  -rot*0.8, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = 'rgba(255,210,235,0.72)';
-        ctx.beginPath(); ctx.ellipse(bx,      by,      5.5, 3, rot,      0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(bx + 8,  by - 2,  4,  2.2, -rot*0.8, 0, Math.PI*2); ctx.fill();
+        ctx.shadowColor = sc; ctx.shadowBlur = 8;
+        ctx.fillStyle = sc;
+        ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
+        if (sr > 2) {
+          ctx.strokeStyle = sc; ctx.lineWidth = 0.7;
+          ctx.beginPath(); ctx.moveTo(sx - sr*2.5, sy); ctx.lineTo(sx + sr*2.5, sy); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(sx, sy - sr*2.5); ctx.lineTo(sx, sy + sr*2.5); ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // 輝く星・宝石の浮遊
+      [
+        { x: cx - 58, y: groundY - 68, col: 'rgba(255,220,80,0.95)', r: 3.0 },
+        { x: cx + 52, y: groundY - 62, col: 'rgba(120,200,255,0.90)', r: 2.5 },
+        { x: cx - 22, y: groundY - 82, col: 'rgba(200,120,255,0.92)', r: 2.8 },
+        { x: cx + 28, y: groundY - 80, col: 'rgba(80,255,180,0.88)', r: 2.2 },
+        { x: cx - 88, y: groundY - 45, col: 'rgba(255,160,80,0.90)', r: 2.5 },
+        { x: cx + 90, y: groundY - 42, col: 'rgba(255,80,180,0.88)', r: 2.2 },
+      ].forEach(gem => {
+        ctx.save();
+        ctx.shadowColor = gem.col; ctx.shadowBlur = 10;
+        ctx.fillStyle = gem.col;
+        ctx.beginPath(); ctx.arc(gem.x, gem.y, gem.r, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = gem.col; ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.moveTo(gem.x - gem.r*3, gem.y); ctx.lineTo(gem.x + gem.r*3, gem.y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(gem.x, gem.y - gem.r*3); ctx.lineTo(gem.x, gem.y + gem.r*3); ctx.stroke();
         ctx.restore();
       });
 
       // 左のちびヤミー
-      drawYamii(ctx, cx - 78, groundY - 18, 15, 0.72);
+      drawYamii(ctx, cx - 78, groundY - 20, 16, 0.78);
       // 右のちびヤミー
-      drawYamii(ctx, cx + 74, groundY - 16, 17, 0.75);
+      drawYamii(ctx, cx + 76, groundY - 18, 17, 0.80);
       // 中央のメインヤミー（大きい！）
-      drawYamii(ctx, cx, groundY - 46, 34, 1.0);
+      drawYamii(ctx, cx, groundY - 48, 36, 1.0);
 
-      // きらきらパーティクル（ピンク系のみ）
-      const sparkColors = [
-        'rgba(255,160,200,0.92)', 'rgba(255,120,170,0.88)', 'rgba(255,200,225,0.85)',
-        'rgba(255,180,215,0.88)', 'rgba(255,140,185,0.85)',
-      ];
-      for (let si = 0; si < 20; si++) {
-        const sa = (si / 20) * Math.PI * 2;
-        const sd = 42 + (si % 5) * 13;
-        const sx = cx + Math.cos(sa) * sd;
-        const sy = groundY - 22 + Math.sin(sa) * sd * 0.26 - (si % 5) * 7;
-        ctx.shadowColor = sparkColors[si % sparkColors.length];
-        ctx.shadowBlur  = 7;
-        ctx.fillStyle   = sparkColors[si % sparkColors.length];
-        ctx.beginPath();
-        ctx.arc(sx, sy, si % 3 === 0 ? 2.4 : 1.7, 0, Math.PI * 2);
-        ctx.fill();
-      }
       ctx.shadowBlur = 0;
       break;
     }

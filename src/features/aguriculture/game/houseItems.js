@@ -132,8 +132,10 @@ const HOUSE_ITEMS = {
                         bonus: { coinBonus: 0.12, expBonus: 0.06 } },
   furn_void_orb:      { name: '虚空の球',   category: 'furniture', price: 55000, emoji: '🌑',
                         bonus: { qualityUp: 8, coinBonus: 0.10, expBonus: 0.10 } },
-  furn_yamii:         { name: 'ヤミー',     category: 'furniture', price: 250000, emoji: '👻',
+  furn_yamii:         { name: 'ヤミー',           category: 'furniture', price: 250000, emoji: '👻',
                         bonus: { qualityUp: 20, coinBonus: 0.30, expBonus: 0.30 } },
+  furn_yamii_plush:   { name: 'ヤミーのぬいぐるみ', category: 'furniture', price: 180000, emoji: '🧸',
+                        bonus: { qualityUp: 16, coinBonus: 0.22, expBonus: 0.22 } },
 };
 
 const MAX_FURNITURE = 8;  // 最大設置数

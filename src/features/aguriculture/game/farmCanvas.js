@@ -740,14 +740,21 @@ function drawInterior(ctx, house, startY) {
       ctx.ellipse(ix, iy + iconSize / 2 - 2, iconSize / 2 - 2, 4, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.font         = `${iconSize - 4}px sans-serif`;
-      ctx.textAlign    = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle    = '#FFFFFF';
-      ctx.fillText(fi.emoji, ix, iy);
+      if (id === 'furn_yamii_plush') {
+        drawYamiiPlush(ctx, ix, iy - iconSize * 0.08, iconSize * 0.44);
+      } else if (id === 'furn_yamii') {
+        drawYamii(ctx, ix, iy - iconSize * 0.08, iconSize * 0.44, 0.65);
+      } else {
+        ctx.font         = `${iconSize - 4}px sans-serif`;
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle    = '#FFFFFF';
+        ctx.fillText(fi.emoji, ix, iy);
+      }
       ctx.textBaseline = 'alphabetic';
       ctx.fillStyle    = 'rgba(0,0,0,0.55)';
       ctx.font         = '8px sans-serif';
+      ctx.textAlign    = 'center';
       ctx.fillText(fi.name, ix, iy + iconSize / 2 - 1);
     });
   }
@@ -910,6 +917,180 @@ function drawYamii(ctx, x, y, r, glowAlpha = 0.8) {
   ctx.ellipse(cx, cy + r * 0.42, r * 0.09, r * 0.07, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.lineCap = 'butt';
+}
+
+// ── ヤミーぬいぐるみ描画 ──────────────────────────────────────────────────────
+// ぬいぐるみ版：縫い目・タグ付きのふわふわヤミー
+function drawYamiiPlush(ctx, x, y, r) {
+  // 地面影
+  ctx.fillStyle = 'rgba(160,130,200,0.18)';
+  ctx.beginPath();
+  ctx.ellipse(x + r * 0.08, y + r * 1.20, r * 0.72, r * 0.17, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // ── 左腕（ぬいぐるみ感・楕円）
+  ctx.fillStyle = '#9278AA';
+  ctx.beginPath();
+  ctx.ellipse(x - r * 0.92, y + r * 0.12, r * 0.31 + r * 0.05, r * 0.21 + r * 0.05, -0.35, 0, Math.PI * 2);
+  ctx.fill();
+  const arm1Grad = ctx.createLinearGradient(x - r * 1.2, y, x - r * 0.6, y + r * 0.3);
+  arm1Grad.addColorStop(0, '#F5F0FF');
+  arm1Grad.addColorStop(1, '#DDD4F8');
+  ctx.fillStyle = arm1Grad;
+  ctx.beginPath();
+  ctx.ellipse(x - r * 0.92, y + r * 0.12, r * 0.31, r * 0.21, -0.35, 0, Math.PI * 2);
+  ctx.fill();
+  // 腕の縫い目（点線）
+  ctx.strokeStyle = 'rgba(160,130,200,0.38)';
+  ctx.lineWidth   = r * 0.06;
+  ctx.setLineDash([r * 0.09, r * 0.09]);
+  ctx.beginPath();
+  ctx.ellipse(x - r * 0.92, y + r * 0.12, r * 0.20, r * 0.13, -0.35, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ── 右腕
+  ctx.fillStyle = '#9278AA';
+  ctx.beginPath();
+  ctx.ellipse(x + r * 0.90, y - r * 0.10, r * 0.29 + r * 0.05, r * 0.20 + r * 0.05, 0.55, 0, Math.PI * 2);
+  ctx.fill();
+  const arm2Grad = ctx.createLinearGradient(x + r * 0.6, y - r * 0.3, x + r * 1.2, y);
+  arm2Grad.addColorStop(0, '#DDD4F8');
+  arm2Grad.addColorStop(1, '#F5F0FF');
+  ctx.fillStyle = arm2Grad;
+  ctx.beginPath();
+  ctx.ellipse(x + r * 0.90, y - r * 0.10, r * 0.29, r * 0.20, 0.55, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(160,130,200,0.38)';
+  ctx.lineWidth   = r * 0.06;
+  ctx.setLineDash([r * 0.09, r * 0.09]);
+  ctx.beginPath();
+  ctx.ellipse(x + r * 0.90, y - r * 0.10, r * 0.18, r * 0.12, 0.55, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ── 体アウトライン
+  yamiiPath(ctx, x, y, r * 1.07);
+  ctx.fillStyle = '#9278AA';
+  ctx.fill();
+
+  // ── 体本体（ぬいぐるみ生地グラデーション）
+  yamiiPath(ctx, x, y, r);
+  const bodyGrad = ctx.createLinearGradient(x - r, y - r, x + r * 0.6, y + r * 1.1);
+  bodyGrad.addColorStop(0,   '#FDFBFF');
+  bodyGrad.addColorStop(0.28,'#F3EEFF');
+  bodyGrad.addColorStop(0.65,'#E4D8FF');
+  bodyGrad.addColorStop(1,   '#D4C8F8');
+  ctx.fillStyle = bodyGrad;
+  ctx.fill();
+
+  // ── 縫い目ライン（ぬいぐるみらしさ）
+  ctx.strokeStyle = 'rgba(160,130,210,0.36)';
+  ctx.lineWidth   = r * 0.065;
+  ctx.setLineDash([r * 0.10, r * 0.09]);
+  // 縦の中央縫い目
+  yamiiPath(ctx, x, y, r);
+  ctx.save();
+  ctx.clip();
+  ctx.beginPath();
+  ctx.moveTo(x, y - r * 0.86);
+  ctx.lineTo(x, y + r * 0.50);
+  ctx.stroke();
+  // 横の境目縫い目（ボディ中間）
+  ctx.beginPath();
+  ctx.arc(x, y + r * 0.04, r * 0.68, Math.PI * 1.08, Math.PI * 1.92);
+  ctx.stroke();
+  ctx.restore();
+  ctx.setLineDash([]);
+
+  // ── ハイライト（光沢）
+  yamiiPath(ctx, x, y, r);
+  ctx.save();
+  ctx.clip();
+  const hl = ctx.createRadialGradient(x - r * 0.28, y - r * 0.38, 0, x - r * 0.28, y - r * 0.38, r * 0.60);
+  hl.addColorStop(0,   'rgba(255,255,255,0.68)');
+  hl.addColorStop(0.5, 'rgba(255,255,255,0.18)');
+  hl.addColorStop(1,   'rgba(255,255,255,0)');
+  ctx.fillStyle = hl;
+  ctx.fillRect(x - r * 2, y - r * 2, r * 4, r * 4);
+  ctx.restore();
+
+  // ── 刺繍目（シンプルな縫い付け感）
+  const eyeR = r * 0.19;
+  const eyeY = y - r * 0.06;
+  for (const sign of [-1, 1]) {
+    const ex = x + sign * r * 0.28;
+    ctx.strokeStyle = '#3A2055';
+    ctx.lineWidth   = r * 0.07;
+    ctx.beginPath();
+    ctx.arc(ex, eyeY, eyeR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#3A2055';
+    ctx.beginPath();
+    ctx.arc(ex, eyeY, eyeR * 0.80, 0, Math.PI * 2);
+    ctx.fill();
+    // ハイライト（1点）
+    ctx.fillStyle = 'rgba(255,255,255,0.82)';
+    ctx.beginPath();
+    ctx.arc(ex - eyeR * 0.28, eyeY - eyeR * 0.32, eyeR * 0.30, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // ── 刺繍ほっぺ
+  ctx.fillStyle = 'rgba(255,150,175,0.42)';
+  ctx.beginPath();
+  ctx.ellipse(x - r * 0.51, y + r * 0.20, r * 0.21, r * 0.12, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(x + r * 0.51, y + r * 0.20, r * 0.21, r * 0.12, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // ── 刺繍スマイル（点線ステッチ）
+  ctx.strokeStyle = '#D06080';
+  ctx.lineWidth   = r * 0.09;
+  ctx.lineCap     = 'round';
+  ctx.setLineDash([r * 0.10, r * 0.09]);
+  ctx.beginPath();
+  ctx.arc(x, y + r * 0.32, r * 0.15, 0.18, Math.PI - 0.18);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.lineCap = 'butt';
+
+  // ── タグ（左下にぶら下がり）
+  const tagX = x - r * 0.48;
+  const tagY = y + r * 1.05;
+  // タグの紐
+  ctx.strokeStyle = '#B898D4';
+  ctx.lineWidth   = r * 0.07;
+  ctx.lineCap     = 'round';
+  ctx.beginPath();
+  ctx.moveTo(tagX, tagY - r * 0.02);
+  ctx.lineTo(tagX + r * 0.04, tagY + r * 0.20);
+  ctx.stroke();
+  ctx.lineCap = 'butt';
+  // タグ本体
+  const tagW = r * 0.40, tagH = r * 0.26;
+  const tagBX = tagX - tagW / 2 + r * 0.04;
+  const tagBY = tagY + r * 0.20;
+  ctx.fillStyle   = '#FDFCFF';
+  ctx.strokeStyle = '#B898D4';
+  ctx.lineWidth   = r * 0.07;
+  roundRect(ctx, tagBX, tagBY, tagW, tagH, r * 0.06);
+  ctx.fill();
+  ctx.stroke();
+  // タグの穴
+  ctx.strokeStyle = '#B898D4';
+  ctx.lineWidth   = r * 0.06;
+  ctx.beginPath();
+  ctx.arc(tagBX + tagW / 2, tagBY + r * 0.04, r * 0.04, 0, Math.PI * 2);
+  ctx.stroke();
+  // タグのハート
+  ctx.fillStyle    = '#E080A8';
+  ctx.font         = `${r * 0.18}px sans-serif`;
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('♡', tagBX + tagW / 2, tagBY + tagH * 0.65);
+  ctx.textBaseline = 'alphabetic';
 }
 
 // ── 庭の描画 ─────────────────────────────────────────────────────────────────
@@ -1641,15 +1822,21 @@ function generateInteriorImage(farm, ownerName = null) {
     ctx.ellipse(x, y + 3, fs * 0.44, fs * 0.12, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // アイコン
-    ctx.shadowColor = 'rgba(255,210,100,0.28)';
-    ctx.shadowBlur  = fs * 0.28;
-    ctx.font         = `${fs}px sans-serif`;
-    ctx.textAlign    = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.fillStyle    = '#FFFFFF';
-    ctx.fillText(item.emoji, x, y);
-    ctx.shadowBlur = 0;
+    // アイコン（ヤミー系は専用描画）
+    if (id === 'furn_yamii_plush') {
+      drawYamiiPlush(ctx, x, y - fs * 0.52, fs * 0.52);
+    } else if (id === 'furn_yamii') {
+      drawYamii(ctx, x, y - fs * 0.52, fs * 0.52, 0.80);
+    } else {
+      ctx.shadowColor = 'rgba(255,210,100,0.28)';
+      ctx.shadowBlur  = fs * 0.28;
+      ctx.font         = `${fs}px sans-serif`;
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillStyle    = '#FFFFFF';
+      ctx.fillText(item.emoji, x, y);
+      ctx.shadowBlur = 0;
+    }
 
     // 家具名
     const nfs = Math.max(7, Math.floor(9 * scale));

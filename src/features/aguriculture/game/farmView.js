@@ -96,7 +96,7 @@ async function buildFarmPayload(userId) {
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('farm_house_shop')
-      .setLabel('家をカスタマイズ')
+      .setLabel('外装カスタマイズ')
       .setEmoji('🏠')
       .setStyle(ButtonStyle.Secondary),
   );
@@ -257,6 +257,13 @@ async function harvestAll(userId) {
 
 // ─── 室内ビュー ──────────────────────────────────────────────────────────────
 
+// farm オブジェクトの初期化ヘルパー
+function initFarmHouse(farm) {
+  if (!farm.house)           farm.house = { ...DEFAULT_HOUSE };
+  if (!farm.house.furniture) farm.house.furniture = [];
+  if (!farm.ownedHouseItems) farm.ownedHouseItems = Object.keys(HOUSE_ITEMS).filter(k => HOUSE_ITEMS[k].price === 0);
+}
+
 async function buildInteriorPayload(targetUserId, ownerName = null) {
   const farm      = await loadFarm(targetUserId);
   const buf       = generateInteriorImage(farm, ownerName);
@@ -268,6 +275,16 @@ async function buildInteriorPayload(targetUserId, ownerName = null) {
     .filter(Boolean)
     .map(item => `${item.emoji} ${item.name}`);
 
+  const furnitureTop = farm.house?.furnitureTop ?? {};
+  const topLines = furniture
+    .filter(id => HOUSE_ITEMS[id]?.topSlots)
+    .map(id => {
+      const item = HOUSE_ITEMS[id];
+      const tops = furnitureTop[id] ?? [];
+      const topNames = tops.map(tid => `${HOUSE_ITEMS[tid]?.emoji ?? ''}${HOUSE_ITEMS[tid]?.name ?? tid}`).join(' ');
+      return `${item.emoji}**${item.name}**の上: ${tops.length === 0 ? '（何もない）' : topNames}`;
+    });
+
   const title = ownerName ? `🏠 ${ownerName} の部屋` : '🏠 あなたの部屋';
   const embed = new EmbedBuilder()
     .setTitle(title)
@@ -275,20 +292,374 @@ async function buildInteriorPayload(targetUserId, ownerName = null) {
     .setImage('attachment://interior.png');
 
   if (furnNames.length > 0) {
-    embed.addFields({ name: '🪑 設置中の家具', value: furnNames.join('　') });
+    embed.addFields({ name: `🪑 設置中の家具 (${furniture.length}/${MAX_FURNITURE})`, value: furnNames.join('　') });
+    if (topLines.length > 0) {
+      embed.addFields({ name: '📦 机・棚の上', value: topLines.join('\n') });
+    }
   } else {
-    embed.setDescription('家具がまだ置かれていません。');
+    embed.setDescription('家具がまだ置かれていません。\n「🪑 家具を管理」から追加しましょう！');
   }
 
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('farm_refresh')
-      .setLabel('← 退室')
-      .setEmoji('🚪')
-      .setStyle(ButtonStyle.Secondary),
-  );
+  const components = [];
 
-  return { embeds: [embed], files: [attachment], components: [row] };
+  if (!ownerName) {
+    // オーナーの部屋 → 管理ボタンを表示
+    const containers = furniture.filter(id => HOUSE_ITEMS[id]?.topSlots);
+    const row1Comps = [
+      new ButtonBuilder()
+        .setCustomId('farm_room_furn_manage')
+        .setLabel('家具を管理')
+        .setEmoji('🪑')
+        .setStyle(ButtonStyle.Primary),
+    ];
+    // 机・棚がある場合は「の上を整理」ボタンを追加（最大2個）
+    containers.slice(0, 2).forEach(id => {
+      row1Comps.push(
+        new ButtonBuilder()
+          .setCustomId(`farm_room_small_setup_${id}`)
+          .setLabel(`${HOUSE_ITEMS[id].emoji}の上を整理`)
+          .setStyle(ButtonStyle.Success)
+      );
+    });
+    row1Comps.push(
+      new ButtonBuilder()
+        .setCustomId('farm_refresh')
+        .setLabel('← 退室')
+        .setEmoji('🚪')
+        .setStyle(ButtonStyle.Secondary)
+    );
+    components.push(new ActionRowBuilder().addComponents(row1Comps));
+  } else {
+    // 訪問者 → 退室のみ
+    components.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('farm_refresh')
+        .setLabel('← 退室')
+        .setEmoji('🚪')
+        .setStyle(ButtonStyle.Secondary),
+    ));
+  }
+
+  return { embeds: [embed], files: [attachment], components };
+}
+
+// ─── 室内 家具管理（farm_room_* ボタン）──────────────────────────────────────
+
+function buildInteriorFurnEmbed(farm, page = 0) {
+  const house      = farm.house ?? { ...DEFAULT_HOUSE };
+  const owned      = farm.ownedHouseItems ?? [];
+  const placed     = house.furniture ?? [];
+  const furnitures = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'furniture');
+  const pageItems  = furnitures.slice(page * FURN_PAGE_SIZE, (page + 1) * FURN_PAGE_SIZE);
+  const totalPages = Math.ceil(furnitures.length / FURN_PAGE_SIZE);
+
+  const lines = pageItems.map(([id, item]) => {
+    const isOwned   = owned.includes(id);
+    const isPlaced  = placed.includes(id);
+    const prefix    = isPlaced ? '✅ ' : isOwned ? '📦 ' : '';
+    const status    = isPlaced ? '設置中' : isOwned ? '所持済' : `${item.price} G`;
+    const bonusText = formatBonus(item.bonus);
+    const topInfo   = item.topSlots ? `  📦×${item.topSlots}` : '';
+    return `${prefix}${item.emoji} **${item.name}** — ${status}${topInfo}${bonusText ? `  \`${bonusText}\`` : ''}`;
+  });
+
+  const furnitureTop = house.furnitureTop ?? {};
+  const topLines = placed
+    .filter(id => HOUSE_ITEMS[id]?.topSlots)
+    .map(id => {
+      const item = HOUSE_ITEMS[id];
+      const tops = furnitureTop[id] ?? [];
+      const topNames = tops.map(tid => `${HOUSE_ITEMS[tid]?.emoji ?? ''}${HOUSE_ITEMS[tid]?.name ?? tid}`).join(' ');
+      return `${item.emoji}**${item.name}**の上: ${tops.length === 0 ? '（何もない）' : topNames}`;
+    });
+
+  let desc = `💰 所持コイン: **${farm.coins} G**\n設置数: **${placed.length} / ${MAX_FURNITURE}**`;
+  if (totalPages > 1) desc += `　ページ: ${page + 1}/${totalPages}`;
+  desc += `\n\n${lines.join('\n')}`;
+  if (topLines.length > 0) desc += `\n\n**📦 机・棚の上**\n${topLines.join('\n')}`;
+
+  return new EmbedBuilder()
+    .setTitle('🪑 家具を管理')
+    .setDescription(desc)
+    .setColor(0x8B6430)
+    .setFooter({ text: '📦マークの家具は上に小物を置けます！' });
+}
+
+function buildInteriorFurnButtons(farm, page = 0) {
+  const house      = farm.house ?? { ...DEFAULT_HOUSE };
+  const owned      = farm.ownedHouseItems ?? [];
+  const placed     = house.furniture ?? [];
+  const furnitures = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'furniture');
+  const pageItems  = furnitures.slice(page * FURN_PAGE_SIZE, (page + 1) * FURN_PAGE_SIZE);
+  const totalPages = Math.ceil(furnitures.length / FURN_PAGE_SIZE);
+  const isFull     = placed.length >= MAX_FURNITURE;
+  const rows       = [];
+
+  for (let i = 0; i < pageItems.length; i += 4) {
+    rows.push(new ActionRowBuilder().addComponents(
+      pageItems.slice(i, i + 4).map(([id, item]) => {
+        const isOwned   = owned.includes(id);
+        const isPlaced  = placed.includes(id);
+        const canAfford = farm.coins >= item.price;
+        if (isPlaced) {
+          return new ButtonBuilder()
+            .setCustomId(`farm_room_furn_remove_${id}`)
+            .setLabel(`${item.emoji} 外す`)
+            .setStyle(ButtonStyle.Danger);
+        }
+        return new ButtonBuilder()
+          .setCustomId(`farm_room_furn_add_${id}`)
+          .setLabel(isOwned ? `${item.emoji} 設置` : `${item.emoji} ${item.price}G`)
+          .setStyle(isOwned ? ButtonStyle.Success : ButtonStyle.Primary)
+          .setDisabled((!isOwned && !canAfford) || isFull);
+      })
+    ));
+  }
+
+  const navComps = [];
+  if (page > 0) {
+    navComps.push(new ButtonBuilder()
+      .setCustomId(`farm_room_furn_page_${page - 1}`)
+      .setLabel('← 前のページ')
+      .setStyle(ButtonStyle.Secondary));
+  }
+  if (page < totalPages - 1) {
+    navComps.push(new ButtonBuilder()
+      .setCustomId(`farm_room_furn_page_${page + 1}`)
+      .setLabel('次のページ →')
+      .setStyle(ButtonStyle.Secondary));
+  }
+  // 设置中の机・棚の「上を整理」ボタン
+  const containers = placed.filter(id => HOUSE_ITEMS[id]?.topSlots);
+  containers.slice(0, 2).forEach(id => {
+    navComps.push(new ButtonBuilder()
+      .setCustomId(`farm_room_small_setup_${id}`)
+      .setLabel(`${HOUSE_ITEMS[id].emoji}の上を整理`)
+      .setStyle(ButtonStyle.Primary));
+  });
+  navComps.push(new ButtonBuilder()
+    .setCustomId('farm_enter_room')
+    .setLabel('← 部屋に戻る')
+    .setEmoji('🚪')
+    .setStyle(ButtonStyle.Secondary));
+  rows.push(new ActionRowBuilder().addComponents(navComps.slice(0, 5)));
+
+  return rows.slice(0, 5);
+}
+
+function buildInteriorTopSetupEmbed(farm, containerId) {
+  // buildTopSetupEmbed と同じ内容
+  return buildTopSetupEmbed(farm, containerId);
+}
+
+function buildInteriorTopSetupButtons(farm, containerId) {
+  const house      = farm.house ?? { ...DEFAULT_HOUSE };
+  const owned      = farm.ownedHouseItems ?? [];
+  const cItem      = HOUSE_ITEMS[containerId];
+  const furnitureTop = house.furnitureTop ?? {};
+  const topItems   = furnitureTop[containerId] ?? [];
+  const allSmall   = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'small');
+  const isFull     = topItems.length >= (cItem.topSlots ?? MAX_TOP_ITEMS);
+  const rows       = [];
+
+  // 置く
+  const canPlace = allSmall.filter(([id]) => owned.includes(id) && !topItems.includes(id));
+  if (canPlace.length > 0) {
+    for (let i = 0; i < canPlace.length; i += 4) {
+      rows.push(new ActionRowBuilder().addComponents(
+        canPlace.slice(i, i + 4).map(([id, item]) =>
+          new ButtonBuilder()
+            .setCustomId(`farm_room_small_place_${containerId}_${id}`)
+            .setLabel(`${item.emoji} 置く`)
+            .setStyle(ButtonStyle.Success)
+            .setDisabled(isFull)
+        )
+      ));
+    }
+  }
+  // 外す
+  if (topItems.length > 0) {
+    rows.push(new ActionRowBuilder().addComponents(
+      topItems.slice(0, 4).map(id => {
+        const item = HOUSE_ITEMS[id];
+        return new ButtonBuilder()
+          .setCustomId(`farm_room_small_remove_${containerId}_${id}`)
+          .setLabel(`${item?.emoji ?? ''} 外す`)
+          .setStyle(ButtonStyle.Danger);
+      })
+    ));
+  }
+  // 所持小物がない場合は購入案内（ephemeral ショップ）
+  if (canPlace.length === 0) {
+    rows.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('farm_room_small_shop')
+        .setLabel('小物を購入する')
+        .setEmoji('📦')
+        .setStyle(ButtonStyle.Primary)
+    ));
+  }
+  rows.push(new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('farm_room_furn_manage')
+      .setLabel('← 家具リストに戻る')
+      .setStyle(ButtonStyle.Secondary)
+  ));
+  return rows.slice(0, 5);
+}
+
+async function handleInteriorFurnButton(interaction) {
+  const { customId, user } = interaction;
+
+  // 家具管理メニューを開く
+  if (customId === 'farm_room_furn_manage') {
+    const farm = await loadFarm(user.id);
+    initFarmHouse(farm);
+    return interaction.update({
+      embeds: [buildInteriorFurnEmbed(farm, 0)],
+      components: buildInteriorFurnButtons(farm, 0),
+      files: [],
+    });
+  }
+
+  // ページ切り替え
+  if (customId.startsWith('farm_room_furn_page_')) {
+    const page = parseInt(customId.replace('farm_room_furn_page_', ''), 10);
+    const farm = await loadFarm(user.id);
+    initFarmHouse(farm);
+    return interaction.update({
+      embeds: [buildInteriorFurnEmbed(farm, page)],
+      components: buildInteriorFurnButtons(farm, page),
+      files: [],
+    });
+  }
+
+  // 家具を追加（購入 or 設置）
+  if (customId.startsWith('farm_room_furn_add_')) {
+    const itemId = customId.replace('farm_room_furn_add_', '');
+    const item   = HOUSE_ITEMS[itemId];
+    if (!item) return;
+    const farm = await loadFarm(user.id);
+    initFarmHouse(farm);
+
+    if (farm.house.furniture.length >= MAX_FURNITURE) {
+      return interaction.reply({ content: `❌ 家具は最大 ${MAX_FURNITURE} 個まで設置できます。`, ephemeral: true });
+    }
+    const isOwned = farm.ownedHouseItems.includes(itemId);
+    if (!isOwned) {
+      if (farm.coins < item.price) {
+        return interaction.reply({ content: `❌ コインが足りません（必要: ${item.price} G）`, ephemeral: true });
+      }
+      farm.coins -= item.price;
+      farm.ownedHouseItems.push(itemId);
+    }
+    farm.house.furniture.push(itemId);
+    await saveFarm(user.id, farm);
+
+    const msg     = isOwned ? `設置しました！` : `${item.price} G で購入・設置しました！`;
+    const topHint = item.topSlots ? `\n📦 上に小物を${item.topSlots}個まで置けます！` : '';
+    await interaction.update({
+      embeds: [buildInteriorFurnEmbed(farm, 0)],
+      components: buildInteriorFurnButtons(farm, 0),
+      files: [],
+    });
+    await interaction.followUp({ content: `✅ ${item.emoji} **${item.name}** を${msg}${topHint}`, ephemeral: true });
+    return;
+  }
+
+  // 家具を取り外し
+  if (customId.startsWith('farm_room_furn_remove_')) {
+    const itemId = customId.replace('farm_room_furn_remove_', '');
+    const farm   = await loadFarm(user.id);
+    initFarmHouse(farm);
+
+    farm.house.furniture = farm.house.furniture.filter(id => id !== itemId);
+    if (farm.house.furnitureTop) delete farm.house.furnitureTop[itemId];
+    await saveFarm(user.id, farm);
+
+    return interaction.update({
+      embeds: [buildInteriorFurnEmbed(farm, 0)],
+      components: buildInteriorFurnButtons(farm, 0),
+      files: [],
+    });
+  }
+
+  // 机・棚の上を整理（入室中）
+  if (customId.startsWith('farm_room_small_setup_')) {
+    const containerId = customId.replace('farm_room_small_setup_', '');
+    const farm = await loadFarm(user.id);
+    initFarmHouse(farm);
+    if (!farm.house.furnitureTop) farm.house.furnitureTop = {};
+
+    return interaction.update({
+      embeds: [buildInteriorTopSetupEmbed(farm, containerId)],
+      components: buildInteriorTopSetupButtons(farm, containerId),
+      files: [],
+    });
+  }
+
+  // 小物を置く（入室中）
+  if (customId.startsWith('farm_room_small_place_')) {
+    const rest = customId.replace('farm_room_small_place_', '');
+    const allContainers = Object.keys(HOUSE_ITEMS).filter(k => HOUSE_ITEMS[k].topSlots);
+    let cId = null, iId = null;
+    for (const cKey of allContainers) {
+      if (rest.startsWith(cKey + '_')) { cId = cKey; iId = rest.slice(cKey.length + 1); break; }
+    }
+    if (!cId || !iId || !HOUSE_ITEMS[cId] || !HOUSE_ITEMS[iId]) {
+      return interaction.reply({ content: '❌ 不明なアイテムです。', ephemeral: true });
+    }
+    const farm = await loadFarm(user.id);
+    initFarmHouse(farm);
+    if (!farm.house.furnitureTop)       farm.house.furnitureTop = {};
+    if (!farm.house.furnitureTop[cId])  farm.house.furnitureTop[cId] = [];
+
+    const topSlots = HOUSE_ITEMS[cId].topSlots ?? MAX_TOP_ITEMS;
+    if (farm.house.furnitureTop[cId].length >= topSlots) {
+      return interaction.reply({ content: `❌ もう置けません（最大${topSlots}個）`, ephemeral: true });
+    }
+    farm.house.furnitureTop[cId].push(iId);
+    await saveFarm(user.id, farm);
+
+    return interaction.update({
+      embeds: [buildInteriorTopSetupEmbed(farm, cId)],
+      components: buildInteriorTopSetupButtons(farm, cId),
+      files: [],
+    });
+  }
+
+  // 小物を外す（入室中）
+  if (customId.startsWith('farm_room_small_remove_')) {
+    const rest = customId.replace('farm_room_small_remove_', '');
+    const allContainers = Object.keys(HOUSE_ITEMS).filter(k => HOUSE_ITEMS[k].topSlots);
+    let cId = null, iId = null;
+    for (const cKey of allContainers) {
+      if (rest.startsWith(cKey + '_')) { cId = cKey; iId = rest.slice(cKey.length + 1); break; }
+    }
+    if (!cId || !iId) return interaction.reply({ content: '❌ 不明なアイテムです。', ephemeral: true });
+    const farm = await loadFarm(user.id);
+    initFarmHouse(farm);
+    if (!farm.house.furnitureTop) farm.house.furnitureTop = {};
+    farm.house.furnitureTop[cId] = (farm.house.furnitureTop[cId] ?? []).filter(id => id !== iId);
+    await saveFarm(user.id, farm);
+
+    return interaction.update({
+      embeds: [buildInteriorTopSetupEmbed(farm, cId)],
+      components: buildInteriorTopSetupButtons(farm, cId),
+      files: [],
+    });
+  }
+
+  // 小物ショップを ephemeral で開く（入室中）
+  if (customId === 'farm_room_small_shop') {
+    const farm = await loadFarm(user.id);
+    initFarmHouse(farm);
+    return interaction.reply({
+      embeds: [buildSmallItemEmbed(farm)],
+      components: buildSmallItemButtons(farm),
+      ephemeral: true,
+    });
+  }
 }
 
 // members: [{ id, displayName }]  vcName: VCの名前
@@ -487,11 +858,11 @@ function buildHouseShopCategoryButtons() {
     )
   );
   const row2 = new ActionRowBuilder().addComponents(
-    ['floor', 'wallpaper', 'furniture', 'small'].map(id =>
+    ['floor', 'wallpaper'].map(id =>
       new ButtonBuilder()
         .setCustomId(`farm_house_cat_${id}`)
         .setLabel(CATEGORY_NAMES[id])
-        .setStyle(id === 'furniture' ? ButtonStyle.Primary : id === 'small' ? ButtonStyle.Success : ButtonStyle.Secondary)
+        .setStyle(ButtonStyle.Secondary)
     )
   );
   return [row1, row2];
@@ -1065,4 +1436,5 @@ module.exports = {
   buildSmallItemEmbed,
   buildSmallItemButtons,
   handleHouseShopButton,
+  handleInteriorFurnButton,
 };

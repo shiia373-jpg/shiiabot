@@ -14,6 +14,7 @@ const {
   buildShopButtons,
   handleShopButton,
   handleHouseShopButton,
+  handleInteriorFurnButton,
 } = require('./game/farmView');
 
 // commands/ 内のファイルを自動ロード
@@ -30,7 +31,14 @@ async function handleButton(interaction) {
   const { customId, user } = interaction;
   if (!customId.startsWith('farm_')) return;
 
-  // 家ショップ・家具関連ボタン
+  // 入室中の家具管理ボタン（farm_room_*）
+  if (customId === 'farm_room_furn_manage' ||
+      customId.startsWith('farm_room_furn_') ||
+      customId.startsWith('farm_room_small_')) {
+    return handleInteriorFurnButton(interaction);
+  }
+
+  // 家ショップ・家具関連ボタン（外装カスタマイズ）
   if (customId === 'farm_house_shop' ||
       customId.startsWith('farm_house_') ||
       customId.startsWith('farm_furn_') ||

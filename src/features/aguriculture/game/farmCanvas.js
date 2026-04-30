@@ -391,6 +391,22 @@ function drawHouse(ctx, house, startY) {
     }
   }
 
+  // ヤミーの壁パターン（小さなおばけシルエットがちりばめられている）
+  if (house.wall === 'wall_yamii') {
+    const ghostPos = [
+      { x: wallX + 28,  y: wallY + 20, s: 0.85 }, { x: wallX + 88,  y: wallY + 14, s: 0.75 },
+      { x: wallX + 148, y: wallY + 22, s: 0.80 }, { x: wallX + 202, y: wallY + 12, s: 0.70 },
+      { x: wallX + 56,  y: wallY + 66, s: 0.78 }, { x: wallX + 118, y: wallY + 68, s: 0.82 },
+      { x: wallX + 174, y: wallY + 60, s: 0.72 },
+    ];
+    ghostPos.forEach(gp => {
+      ctx.save();
+      ctx.globalAlpha = 0.18;
+      drawYamii(ctx, gp.x, gp.y - 6, 10 * gp.s, 0.0);
+      ctx.restore();
+    });
+  }
+
   // 壁右端シャドウ
   const wsh = ctx.createLinearGradient(wallX + WALL_W - 32, wallY, wallX + WALL_W, wallY);
   wsh.addColorStop(0, 'rgba(0,0,0,0)');
@@ -439,6 +455,14 @@ function drawHouse(ctx, house, startY) {
   ctx.fill();
   ctx.shadowBlur = 0;
 
+  // ヤミーの扉：上パネル部分にヤミーの顔（ミニ）
+  if (house.door === 'door_yamii') {
+    ctx.save();
+    ctx.globalAlpha = 0.90;
+    drawYamii(ctx, doorX + doorW / 2, doorY + doorH * 0.24, 10, 0.6);
+    ctx.restore();
+  }
+
   // ── 屋根 ──
   // 屋根右面（3D）
   ctx.fillStyle = hexAlpha(roofItem.peak, 0.88);
@@ -469,8 +493,26 @@ function drawHouse(ctx, house, startY) {
   ctx.lineTo(roofPeakX + 30, roofPeakY + ROOF_H * 0.4);
   ctx.closePath();
   ctx.fill();
+  // ヤミイ屋根：屋根全体に紫の霧とヤミイが乗っている
+  if (house.roof === 'roof_yamii') {
+    // 屋根に柔らかいラベンダーオーラ
+    const roofAura = ctx.createRadialGradient(roofPeakX, roofPeakY + 20, 5, roofPeakX, roofPeakY + 20, 85);
+    roofAura.addColorStop(0,   'rgba(190,160,255,0.35)');
+    roofAura.addColorStop(0.6, 'rgba(160,130,220,0.12)');
+    roofAura.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.fillStyle = roofAura;
+    ctx.beginPath();
+    ctx.moveTo(roofPeakX, roofPeakY);
+    ctx.lineTo(wallX - 18, wallY);
+    ctx.lineTo(wallX + WALL_W + 18, wallY);
+    ctx.closePath();
+    ctx.fill();
+    // 棟の頂点に座るヤミー（かわいい）
+    drawYamii(ctx, roofPeakX, roofPeakY - 16, 16, 0.9);
+  }
+
   // 瓦ライン
-  if (house.roof !== 'roof_golden') {
+  if (house.roof !== 'roof_golden' && house.roof !== 'roof_yamii') {
     ctx.strokeStyle = hexAlpha(roofItem.peak, 0.28);
     ctx.lineWidth = 1;
     for (let i = 1; i <= 4; i++) {
@@ -614,6 +656,37 @@ function drawInterior(ctx, house, startY) {
       }
     }
   }
+  // ヤミー壁紙：小さなヤミーシルエットが並ぶかわいいパターン
+  if (house.wallpaper === 'wp_yamii') {
+    for (let gx = px + 20; gx < px + panelW - 10; gx += 46) {
+      for (let gy = py + 14; gy < py + panelH - floorH - 8; gy += 28) {
+        ctx.save();
+        ctx.globalAlpha = 0.16;
+        drawYamii(ctx, gx, gy - 5, 9, 0.0);
+        ctx.restore();
+      }
+    }
+  }
+  // ヤミー床：ハートと星の足跡パターン
+  if (house.floor === 'floor_yamii') {
+    ctx.fillStyle = 'rgba(180,140,220,0.18)';
+    for (let fx = px + 18; fx < px + panelW - 10; fx += 48) {
+      const fy = py + panelH - floorH + 6;
+      // ハート
+      ctx.beginPath();
+      ctx.arc(fx - 3, fy - 2, 3.5, Math.PI, 0);
+      ctx.arc(fx + 3, fy - 2, 3.5, Math.PI, 0);
+      ctx.lineTo(fx, fy + 5);
+      ctx.closePath();
+      ctx.fill();
+      // 星（小）
+      ctx.fillStyle = 'rgba(200,160,230,0.18)';
+      ctx.beginPath();
+      ctx.arc(fx + 20, fy - 1, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(180,140,220,0.18)';
+    }
+  }
 
   // 天井・壁境界ライン
   ctx.strokeStyle = 'rgba(0,0,0,0.22)';
@@ -684,6 +757,159 @@ function drawInterior(ctx, house, startY) {
   ctx.textAlign    = 'right';
   ctx.textBaseline = 'alphabetic';
   ctx.fillText(`${furniture.length}/${MAX_FURNITURE}`, px + panelW - 6, py + panelH - 5);
+}
+
+// ── ヤミー描画ヘルパー ────────────────────────────────────────────────────────
+// ヤミー: かわいい白〜ラベンダーのおばけキャラ
+// x, y: 体の上部中心, r: 基準半径, glowAlpha: オーラ強度(0〜1)
+function yamiiPath(ctx, x, y, r) {
+  // おばけシルエット：丸い上部＋下部ふわふわ3バンプ
+  const cx = x, cy = y + r * 0.05;
+  const hr = r * 0.88;
+  const peakY = cy + hr * 0.60;
+  const tipY  = cy + hr * 1.08;
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, hr, Math.PI, 0, false);          // 上半円
+  ctx.lineTo(cx + hr, peakY);                       // 右側ライン
+  // 右バンプ
+  ctx.quadraticCurveTo(cx + hr * 0.80, tipY,        cx + hr * 0.52, peakY);
+  // 中央バンプ
+  ctx.quadraticCurveTo(cx + hr * 0.22, tipY - r * 0.12, cx,         tipY - r * 0.06);
+  ctx.quadraticCurveTo(cx - hr * 0.22, tipY - r * 0.12, cx - hr * 0.52, peakY);
+  // 左バンプ
+  ctx.quadraticCurveTo(cx - hr * 0.80, tipY,        cx - hr, peakY);
+  ctx.closePath();
+}
+
+function drawYamii(ctx, x, y, r, glowAlpha = 0.8) {
+  const cx = x, cy = y;
+
+  // ── 地面の影（楕円）
+  ctx.fillStyle = `rgba(150,100,200,${glowAlpha * 0.20})`;
+  ctx.beginPath();
+  ctx.ellipse(cx + r * 0.08, cy + r * 1.18, r * 0.75, r * 0.18, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // ── 柔らかいオーラ
+  const aura = ctx.createRadialGradient(cx, cy, r * 0.3, cx, cy, r * 2.0);
+  aura.addColorStop(0,   `rgba(200,180,255,${glowAlpha * 0.30})`);
+  aura.addColorStop(0.55,`rgba(170,150,230,${glowAlpha * 0.12})`);
+  aura.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = aura;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 2.0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // ── 左腕（ちっちゃい手）
+  ctx.save();
+  ctx.translate(cx - r * 0.92, cy + r * 0.12);
+  ctx.rotate(-0.35);
+  // 手の輪郭（アウトライン先）
+  ctx.fillStyle = '#7A508A';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 0.31 + r * 0.05, r * 0.21 + r * 0.05, 0, 0, Math.PI * 2);
+  ctx.fill();
+  const armGrad = ctx.createLinearGradient(-r * 0.3, -r * 0.2, r * 0.3, r * 0.2);
+  armGrad.addColorStop(0, '#F0ECFF');
+  armGrad.addColorStop(1, '#D8D0F0');
+  ctx.fillStyle = armGrad;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 0.31, r * 0.21, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // ── 右腕（少し上向き）
+  ctx.save();
+  ctx.translate(cx + r * 0.90, cy - r * 0.10);
+  ctx.rotate(0.55);
+  ctx.fillStyle = '#7A508A';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 0.28 + r * 0.05, r * 0.19 + r * 0.05, 0, 0, Math.PI * 2);
+  ctx.fill();
+  const armGrad2 = ctx.createLinearGradient(-r * 0.3, -r * 0.2, r * 0.3, r * 0.2);
+  armGrad2.addColorStop(0, '#F0ECFF');
+  armGrad2.addColorStop(1, '#D8D0F0');
+  ctx.fillStyle = armGrad2;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 0.28, r * 0.19, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // ── 体（おばけ本体）
+  // アウトライン（少し大きめに描いてから本体を重ねる）
+  ctx.save();
+  ctx.shadowColor = `rgba(130,90,200,${glowAlpha * 0.45})`;
+  ctx.shadowBlur  = r * 0.60;
+  yamiiPath(ctx, cx, cy, r * 1.06);  // アウトライン用（少し大きく）
+  ctx.fillStyle = '#7A508A';
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+
+  yamiiPath(ctx, cx, cy, r);
+  const bodyGrad = ctx.createLinearGradient(cx - r, cy - r, cx + r * 0.6, cy + r * 1.1);
+  bodyGrad.addColorStop(0,   '#FEFCFF');  // 上：ほぼ白
+  bodyGrad.addColorStop(0.25,'#F5F0FF');  // 薄ラベンダー
+  bodyGrad.addColorStop(0.65,'#E4DAFF');  // ラベンダー
+  bodyGrad.addColorStop(1,   '#CAC0F0');  // 下：薄パープル青
+  ctx.fillStyle = bodyGrad;
+  ctx.fill();
+
+  // ── ハイライト（左上の光沢）
+  yamiiPath(ctx, cx, cy, r);
+  ctx.save();
+  ctx.clip();
+  const hl = ctx.createRadialGradient(cx - r * 0.28, cy - r * 0.38, 0, cx - r * 0.28, cy - r * 0.38, r * 0.62);
+  hl.addColorStop(0,   'rgba(255,255,255,0.72)');
+  hl.addColorStop(0.55,'rgba(255,255,255,0.20)');
+  hl.addColorStop(1,   'rgba(255,255,255,0)');
+  ctx.fillStyle = hl;
+  ctx.fillRect(cx - r * 2, cy - r * 2, r * 4, r * 4);
+  ctx.restore();
+
+  // ── 目（大きな丸目）
+  const eyeR  = r * 0.21;
+  const eyeY  = cy - r * 0.06;
+  for (const sign of [-1, 1]) {
+    const ex = cx + sign * r * 0.29;
+    ctx.fillStyle = '#3A2055';
+    ctx.beginPath();
+    ctx.arc(ex, eyeY, eyeR, 0, Math.PI * 2);
+    ctx.fill();
+    // 白ハイライト（大）
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.beginPath();
+    ctx.arc(ex - eyeR * 0.28, eyeY - eyeR * 0.32, eyeR * 0.40, 0, Math.PI * 2);
+    ctx.fill();
+    // 白ハイライト（小）
+    ctx.beginPath();
+    ctx.arc(ex + eyeR * 0.22, eyeY + eyeR * 0.18, eyeR * 0.20, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // ── ほっぺ（ピンクの楕円）
+  ctx.fillStyle = 'rgba(255,155,175,0.50)';
+  ctx.beginPath();
+  ctx.ellipse(cx - r * 0.52, cy + r * 0.20, r * 0.22, r * 0.13, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(cx + r * 0.52, cy + r * 0.20, r * 0.22, r * 0.13, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // ── 口（小さなハッピースマイル）
+  ctx.strokeStyle = '#D06080';
+  ctx.lineWidth   = r * 0.085;
+  ctx.lineCap     = 'round';
+  ctx.beginPath();
+  ctx.arc(cx, cy + r * 0.32, r * 0.15, 0.15, Math.PI - 0.15);
+  ctx.stroke();
+  // 舌（ちょろっと）
+  ctx.fillStyle = '#FF8099';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + r * 0.42, r * 0.09, r * 0.07, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.lineCap = 'butt';
 }
 
 // ── 庭の描画 ─────────────────────────────────────────────────────────────────
@@ -894,6 +1120,65 @@ function drawGarden(ctx, gardenId, cx, groundY) {
       ctx.beginPath();
       ctx.ellipse(cx - 12, groundY - 36, 6, 4, -0.5, 0, Math.PI * 2);
       ctx.fill();
+      break;
+    }
+    case 'garden_yamii': {
+      // ── ヤミーの庭 ── かわいいおばけたちが集まるラベンダー色の庭
+
+      // 柔らかいラベンダーの地面オーラ
+      const yGnd = ctx.createRadialGradient(cx, groundY - 4, 8, cx, groundY - 4, 105);
+      yGnd.addColorStop(0,   'rgba(200,180,255,0.40)');
+      yGnd.addColorStop(0.5, 'rgba(170,145,230,0.18)');
+      yGnd.addColorStop(1,   'rgba(0,0,0,0)');
+      ctx.fillStyle = yGnd;
+      ctx.beginPath();
+      ctx.ellipse(cx, groundY - 4, 105, 22, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // かわいい花（ピンク・ラベンダー）
+      const yFlowers = [
+        { x: cx - 96, c: '#F0A0C8' }, { x: cx - 72, c: '#D0A8F0' },
+        { x: cx + 66, c: '#F0A8E0' }, { x: cx + 90, c: '#C0B0FF' },
+      ];
+      yFlowers.forEach(f => {
+        ctx.fillStyle = '#88BB88';
+        ctx.fillRect(f.x - 1, groundY - 14, 2, 14);
+        for (let p = 0; p < 5; p++) {
+          const fa = (p / 5) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.arc(f.x + Math.cos(fa) * 5.5, groundY - 15 + Math.sin(fa) * 3.5, 4.5, 0, Math.PI * 2);
+          ctx.fillStyle = f.c;
+          ctx.fill();
+        }
+        ctx.beginPath();
+        ctx.arc(f.x, groundY - 15, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFF0CC';
+        ctx.fill();
+      });
+
+      // 左のちびヤミー
+      drawYamii(ctx, cx - 80, groundY - 18, 14, 0.65);
+      // 右のちびヤミー（少し大きい）
+      drawYamii(ctx, cx + 76, groundY - 16, 16, 0.70);
+
+      // 中央のメインヤミー（大きい！）
+      drawYamii(ctx, cx, groundY - 44, 32, 1.0);
+
+      // きらきらパーティクル
+      const sparkColors = ['rgba(220,180,255,0.85)', 'rgba(255,200,220,0.80)', 'rgba(200,200,255,0.75)'];
+      for (let si = 0; si < 14; si++) {
+        const sa = (si / 14) * Math.PI * 2;
+        const sd = 50 + (si % 4) * 14;
+        const sx = cx + Math.cos(sa) * sd;
+        const sy = groundY - 20 + Math.sin(sa) * sd * 0.30 - (si % 4) * 7;
+        ctx.shadowColor = '#DDB0FF';
+        ctx.shadowBlur  = 5;
+        ctx.fillStyle   = sparkColors[si % 3];
+        ctx.beginPath();
+        ctx.arc(sx, sy, 1.8 + (si % 2) * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
       break;
     }
     case 'garden_void': {

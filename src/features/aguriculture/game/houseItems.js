@@ -20,6 +20,8 @@ const HOUSE_ITEMS = {
                     bonus: { coinBonus: 0.18, expBonus: 0.10, qualityUp: 3 } },
   wall_void:      { name: '虚空の壁',       category: 'wall', price: 55000,  color: '#1A0830', accent: '#0C0418',
                     bonus: { coinBonus: 0.28, expBonus: 0.16, qualityUp: 6 } },
+  wall_yamii:     { name: 'ヤミーの壁',     category: 'wall', price: 200000, color: '#EAE4F8', accent: '#B8A0D8',
+                    bonus: { coinBonus: 0.60, expBonus: 0.45, qualityUp: 14 } },
 
   // ─── 外装：屋根 ─────────────────────────────────────────────────────
   roof_straw:     { name: 'わら屋根',       category: 'roof', price: 0,      color: '#9B7B40', peak: '#7B5B28', label: 'デフォルト' },
@@ -34,6 +36,8 @@ const HOUSE_ITEMS = {
                     bonus: { coinBonus: 0.14, expBonus: 0.08, qualityUp: 2 } },
   roof_void:      { name: '虚空屋根',       category: 'roof', price: 45000,  color: '#1C0A30', peak: '#0E0420',
                     bonus: { coinBonus: 0.22, expBonus: 0.14, qualityUp: 5 } },
+  roof_yamii:     { name: 'ヤミー屋根',     category: 'roof', price: 180000, color: '#D8CCED', peak: '#9A78BE',
+                    bonus: { coinBonus: 0.52, expBonus: 0.38, qualityUp: 12 } },
 
   // ─── 外装：扉 ───────────────────────────────────────────────────────
   door_wood:      { name: '木の扉',         category: 'door', price: 0,      color: '#6B3A1A', knob: '#B08030', label: 'デフォルト' },
@@ -46,6 +50,8 @@ const HOUSE_ITEMS = {
                     bonus: { coinBonus: 0.12, expBonus: 0.06, qualityUp: 2 } },
   door_void:      { name: '虚空の扉',       category: 'door', price: 38000,  color: '#0A0418', knob: '#9060FF',
                     bonus: { coinBonus: 0.20, expBonus: 0.12, qualityUp: 4 } },
+  door_yamii:     { name: 'ヤミーの扉',     category: 'door', price: 160000, color: '#EEE8FA', knob: '#C070D8',
+                    bonus: { coinBonus: 0.45, expBonus: 0.32, qualityUp: 10 } },
 
   // ─── 外装：庭 ───────────────────────────────────────────────────────
   garden_none:      { name: 'なし',         category: 'garden', price: 0,      label: 'デフォルト' },
@@ -60,6 +66,8 @@ const HOUSE_ITEMS = {
                       bonus: { coinBonus: 0.24, expBonus: 0.18, qualityUp: 6 } },
   garden_void:      { name: '虚空の庭',     category: 'garden', price: 65000,
                       bonus: { coinBonus: 0.35, expBonus: 0.25, qualityUp: 8 } },
+  garden_yamii:     { name: 'ヤミーの庭',   category: 'garden', price: 300000,
+                      bonus: { coinBonus: 0.80, expBonus: 0.65, qualityUp: 18 } },
 
   // ─── 内装：床 ───────────────────────────────────────────────────────
   floor_dirt:     { name: '土の床',         category: 'floor', price: 0,      color: '#5A3818', label: 'デフォルト' },
@@ -74,6 +82,8 @@ const HOUSE_ITEMS = {
                     bonus: { coinBonus: 0.10, expBonus: 0.16, qualityUp: 2 } },
   floor_void:     { name: '虚空の床',       category: 'floor', price: 50000,  color: '#0A0814',
                     bonus: { coinBonus: 0.15, expBonus: 0.24, qualityUp: 5 } },
+  floor_yamii:    { name: 'ヤミーの床',     category: 'floor', price: 200000, color: '#E8E0F8',
+                    bonus: { coinBonus: 0.45, expBonus: 0.58, qualityUp: 14 } },
 
   // ─── 内装：壁紙 ─────────────────────────────────────────────────────
   wp_plain:       { name: 'シンプル',       category: 'wallpaper', price: 0,      color: '#C0A880', label: 'デフォルト' },
@@ -87,6 +97,8 @@ const HOUSE_ITEMS = {
                     bonus: { coinBonus: 0.09, expBonus: 0.12, qualityUp: 2 } },
   wp_void:        { name: '虚空の壁紙',     category: 'wallpaper', price: 40000,  color: '#1A0838',
                     bonus: { coinBonus: 0.14, expBonus: 0.20, qualityUp: 4 } },
+  wp_yamii:       { name: 'ヤミーの壁紙',   category: 'wallpaper', price: 180000, color: '#F2EEFF',
+                    bonus: { coinBonus: 0.38, expBonus: 0.50, qualityUp: 12 } },
 
   // ─── 家具 ───────────────────────────────────────────────────────────
   furn_plant:         { name: '観葉植物',   category: 'furniture', price: 400,   emoji: '🌿' },
@@ -120,6 +132,8 @@ const HOUSE_ITEMS = {
                         bonus: { coinBonus: 0.12, expBonus: 0.06 } },
   furn_void_orb:      { name: '虚空の球',   category: 'furniture', price: 55000, emoji: '🌑',
                         bonus: { qualityUp: 8, coinBonus: 0.10, expBonus: 0.10 } },
+  furn_yamii:         { name: 'ヤミー',     category: 'furniture', price: 250000, emoji: '👻',
+                        bonus: { qualityUp: 20, coinBonus: 0.30, expBonus: 0.30 } },
 };
 
 const MAX_FURNITURE = 8;  // 最大設置数

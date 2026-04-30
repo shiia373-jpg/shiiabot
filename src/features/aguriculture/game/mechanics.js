@@ -1,4 +1,5 @@
 const { CROPS } = require('./crops');
+const { HOUSE_ITEMS } = require('./houseItems');
 
 const MAX_SLOTS = 9;
 const INITIAL_SLOTS = 2;
@@ -37,14 +38,47 @@ function getAutoEfficiency(level) {
   return Math.min(0.4 + level * 0.015, 0.75);
 }
 
-// ランダム品質を決定
-function rollQuality() {
-  const rand = Math.random();
-  if (rand < 0.55) return QUALITY.C;
-  if (rand < 0.80) return QUALITY.B;
-  if (rand < 0.93) return QUALITY.A;
-  if (rand < 0.99) return QUALITY.S;
-  return QUALITY.SS;
+// 家ボーナス集計（装備中の外装・内装・家具から合算）
+function getFarmBonus(farm) {
+  const house = farm.house ?? {};
+  let coinBonus = 0;
+  let expBonus  = 0;
+  let qualityUp = 0;
+
+  // 外装・内装カテゴリ
+  for (const cat of ['wall', 'roof', 'door', 'garden', 'floor', 'wallpaper']) {
+    const itemId = house[cat];
+    if (!itemId) continue;
+    const item = HOUSE_ITEMS[itemId];
+    if (item?.bonus) {
+      coinBonus += item.bonus.coinBonus ?? 0;
+      expBonus  += item.bonus.expBonus  ?? 0;
+      qualityUp += item.bonus.qualityUp ?? 0;
+    }
+  }
+
+  // 設置中の家具
+  for (const itemId of (house.furniture ?? [])) {
+    const item = HOUSE_ITEMS[itemId];
+    if (item?.bonus) {
+      coinBonus += item.bonus.coinBonus ?? 0;
+      expBonus  += item.bonus.expBonus  ?? 0;
+      qualityUp += item.bonus.qualityUp ?? 0;
+    }
+  }
+
+  return { coinBonus, expBonus, qualityUp };
+}
+
+// ランダム品質を決定（qualityUp が高いほど高品質になりやすい）
+function rollQuality(qualityUp = 0) {
+  const rand = Math.random() * 100;               // 0〜100
+  const eff  = rand + Math.min(qualityUp, 20) * 0.6; // 最大 +12 pt シフト
+  if (eff >= 99) return QUALITY.SS;   // 基本 1%
+  if (eff >= 93) return QUALITY.S;    // 基本 6%
+  if (eff >= 80) return QUALITY.A;    // 基本 13%
+  if (eff >= 55) return QUALITY.B;    // 基本 25%
+  return QUALITY.C;                    // 基本 55%
 }
 
 // タイミングボーナス
@@ -67,22 +101,28 @@ function getSlotStatus(slot) {
   return 'overripe';
 }
 
-// 収穫計算
-function calcHarvest(slot, isManual = true) {
+// 収穫計算（farmBonus を渡すとコイン・EXP・品質にボーナス適用）
+function calcHarvest(slot, isManual = true, farmBonus = null) {
   const crop = CROPS[slot.crop];
   if (!crop) return null;
-  const quality = rollQuality();
-  const elapsed = Date.now() - slot.planted_at;
+
+  const quality     = rollQuality(farmBonus?.qualityUp ?? 0);
+  const elapsed     = Date.now() - slot.planted_at;
   const timingBonus = getTimingBonus(elapsed, crop.growTime);
   const manualBonus = isManual ? getManualBonus() : 1.0;
+  const coinMult    = 1 + (farmBonus?.coinBonus ?? 0);
+  const expMult     = 1 + (farmBonus?.expBonus  ?? 0);
 
-  const coins = Math.floor(crop.sell * quality.multiplier * timingBonus * manualBonus);
+  const coins = Math.floor(crop.sell * quality.multiplier * timingBonus * manualBonus * coinMult);
+  const exp   = Math.floor(crop.exp * expMult);
+
   const bonuses = [];
   if (isManual)        bonuses.push(`🤲 手動収穫 ×${getManualBonus()}`);
   if (timingBonus > 1) bonuses.push(`⏰ ベストタイミング ×${timingBonus}`);
   if (timingBonus < 1) bonuses.push(`⚠️ 過熟ペナルティ ×${timingBonus}`);
+  if (farmBonus?.coinBonus > 0) bonuses.push(`🏡 家ボーナス ×${coinMult.toFixed(2)}`);
 
-  return { coins, quality, exp: crop.exp, bonuses };
+  return { coins, quality, exp, bonuses };
 }
 
 // 成長進捗 0.0〜1.0
@@ -122,6 +162,7 @@ module.exports = {
   getOfflineBonus,
   getManualBonus,
   getAutoEfficiency,
+  getFarmBonus,
   getTimingBonus,
   getSlotStatus,
   calcHarvest,

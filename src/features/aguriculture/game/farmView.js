@@ -9,12 +9,13 @@ const {
 const { loadFarm, saveFarm } = require('./farmState');
 const { generateFarmImage, generateInteriorImage } = require('./farmCanvas');
 const { CROPS } = require('./crops');
-const { HOUSE_ITEMS, DEFAULT_HOUSE, CATEGORY_NAMES, MAX_FURNITURE } = require('./houseItems');
+const { HOUSE_ITEMS, DEFAULT_HOUSE, CATEGORY_NAMES, MAX_FURNITURE, formatBonus } = require('./houseItems');
 const {
   MAX_SLOTS,
   getUnlockCost,
   getLevelExp,
   getSlotStatus,
+  getFarmBonus,
   calcHarvest,
   getGrowProgress,
   getTimeToReady,
@@ -53,6 +54,12 @@ async function buildFarmPayload(userId) {
   const expBar = Math.floor((farm.exp / nextLevelExp) * 10);
   const expBarStr = '█'.repeat(expBar) + '░'.repeat(10 - expBar);
 
+  const farmBonus = getFarmBonus(farm);
+  const bonusParts = [];
+  if (farmBonus.coinBonus > 0) bonusParts.push(`💰 +${Math.round(farmBonus.coinBonus * 100)}%`);
+  if (farmBonus.expBonus  > 0) bonusParts.push(`⚡ +${Math.round(farmBonus.expBonus  * 100)}%`);
+  if (farmBonus.qualityUp > 0) bonusParts.push(`✨ 品質+${farmBonus.qualityUp}`);
+
   const embed = new EmbedBuilder()
     .setTitle('🌾 あなたの農場')
     .setColor(0x3D7A26)
@@ -64,6 +71,10 @@ async function buildFarmPayload(userId) {
       { name: `⚡ Lv.${farm.level}`, value: `${expBarStr}\n${farm.exp} / ${nextLevelExp} EXP`, inline: true },
     )
     .setImage('attachment://farm.png');
+
+  if (bonusParts.length > 0) {
+    embed.addFields({ name: '🏡 家ボーナス', value: bonusParts.join('　'), inline: true });
+  }
 
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -205,6 +216,7 @@ async function harvestAll(userId) {
   if (!farm.level) farm.level = 1;
   if (!farm.exp)   farm.exp   = 0;
 
+  const farmBonus = getFarmBonus(farm);
   const results = [];
   let totalCoins = 0;
   let totalExp   = 0;
@@ -213,7 +225,7 @@ async function harvestAll(userId) {
     const slot = farm.slots[i];
     if (!['optimal', 'ready', 'overripe'].includes(getSlotStatus(slot))) continue;
 
-    const result = calcHarvest(slot, true);
+    const result = calcHarvest(slot, true, farmBonus);
     if (!result) continue;
 
     totalCoins += result.coins;
@@ -240,7 +252,7 @@ async function harvestAll(userId) {
   }
 
   await saveFarm(userId, farm);
-  return { farm, results, totalCoins, totalExp, levelUps };
+  return { farm, results, totalCoins, totalExp, levelUps, farmBonus };
 }
 
 // ─── 室内ビュー ──────────────────────────────────────────────────────────────
@@ -298,11 +310,21 @@ function buildVCVisitPayload(members, vcName) {
   };
 }
 
-function buildHarvestEmbed(results, totalCoins, totalExp, newBalance, newLevel, levelUps) {
+function buildHarvestEmbed(results, totalCoins, totalExp, newBalance, newLevel, levelUps, farmBonus = null) {
   const lines = results.map(({ slotNum, crop, result }) => {
     const bonus = result.bonuses.length ? `\n　${result.bonuses.join(' / ')}` : '';
     return `#${slotNum} ${crop.emoji} **${crop.name}** — ${result.quality.emoji} **${result.quality.label}** → **${result.coins} G** / +${result.exp} EXP${bonus}`;
   });
+
+  // フッター：家ボーナスがあれば表示
+  let footerText = '⭐ ベストタイミングで収穫するとボーナスUP！';
+  if (farmBonus && (farmBonus.coinBonus > 0 || farmBonus.expBonus > 0 || farmBonus.qualityUp > 0)) {
+    const fp = [];
+    if (farmBonus.coinBonus > 0) fp.push(`コイン +${Math.round(farmBonus.coinBonus * 100)}%`);
+    if (farmBonus.expBonus  > 0) fp.push(`EXP +${Math.round(farmBonus.expBonus  * 100)}%`);
+    if (farmBonus.qualityUp > 0) fp.push(`品質 +${farmBonus.qualityUp}`);
+    footerText = `🏡 家ボーナス適用中: ${fp.join(' / ')}`;
+  }
 
   const embed = new EmbedBuilder()
     .setTitle('🧺 収穫完了！')
@@ -313,7 +335,7 @@ function buildHarvestEmbed(results, totalCoins, totalExp, newBalance, newLevel, 
       { name: '💳 残高',       value: `${newBalance} G`,     inline: true },
       { name: '⚡ 獲得EXP',    value: `+${totalExp} EXP`,    inline: true },
     )
-    .setFooter({ text: '⭐ ベストタイミングで収穫するとボーナスUP！' });
+    .setFooter({ text: footerText });
 
   if (levelUps.length > 0) {
     embed.addFields({
@@ -485,7 +507,8 @@ function buildHouseCategoryEmbed(farm, category) {
     const isEquipped = house[category] === id;
     const price      = item.price === 0 ? '無料' : `${item.price} G`;
     const status     = isEquipped ? '✅ 装備中' : isOwned ? '📦 所持済' : price;
-    return `**${item.name}** — ${status}`;
+    const bonusText  = formatBonus(item.bonus);
+    return `**${item.name}** — ${status}${bonusText ? `  \`${bonusText}\`` : ''}`;
   });
 
   return new EmbedBuilder()
@@ -538,7 +561,8 @@ function buildFurnitureEmbed(farm) {
     const isPlaced  = placed.includes(id);
     const prefix    = isPlaced ? '✅ ' : isOwned ? '📦 ' : '';
     const status    = isPlaced ? '設置中' : isOwned ? '所持済' : `${item.price} G`;
-    return `${prefix}${item.emoji} **${item.name}** — ${status}`;
+    const bonusText = formatBonus(item.bonus);
+    return `${prefix}${item.emoji} **${item.name}** — ${status}${bonusText ? `  \`${bonusText}\`` : ''}`;
   });
 
   return new EmbedBuilder()

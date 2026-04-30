@@ -132,9 +132,9 @@ async function handleButton(interaction) {
       const farmPayload = await buildFarmPayload(user.id);
 
       if (result) {
-        const { results, totalCoins, totalExp, farm, levelUps } = result;
+        const { results, totalCoins, totalExp, farm, levelUps, farmBonus } = result;
         await interaction.followUp({
-          embeds: [buildHarvestEmbed(results, totalCoins, totalExp, farm.coins, farm.level, levelUps)],
+          embeds: [buildHarvestEmbed(results, totalCoins, totalExp, farm.coins, farm.level, levelUps, farmBonus)],
           ephemeral: true,
         });
       }

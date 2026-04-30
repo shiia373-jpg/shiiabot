@@ -793,6 +793,178 @@ function drawGarden(ctx, gardenId, cx, groundY) {
       ctx.stroke();
       break;
     }
+    case 'garden_zen': {
+      // 砂紋（波紋ライン）
+      ctx.strokeStyle = 'rgba(210,195,160,0.35)';
+      ctx.lineWidth = 1;
+      for (let r = 14; r <= 52; r += 9) {
+        ctx.beginPath();
+        ctx.ellipse(cx, groundY - 6, r, r * 0.32, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      // 置き石 × 3
+      const zenStones = [
+        { ox: -44, ow: 22, oh: 14 }, { ox: 0, ow: 14, oh: 10 }, { ox: 40, ow: 18, oh: 12 },
+      ];
+      zenStones.forEach(s => {
+        ctx.fillStyle = '#555560';
+        ctx.beginPath();
+        ctx.ellipse(cx + s.ox + 3, groundY - s.oh / 2 - 2, s.ow / 2, s.oh / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#78787E';
+        ctx.beginPath();
+        ctx.ellipse(cx + s.ox, groundY - s.oh / 2 - 3, s.ow / 2, s.oh / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // ハイライト
+        ctx.fillStyle = 'rgba(200,200,210,0.22)';
+        ctx.beginPath();
+        ctx.ellipse(cx + s.ox - 3, groundY - s.oh / 2 - 5, s.ow / 4, s.oh / 4, -0.4, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      // 石灯籠
+      ctx.fillStyle = '#484848';
+      ctx.fillRect(cx + 60 + 2, groundY - 34, 12, 34);   // 右面
+      ctx.fillStyle = '#666666';
+      ctx.fillRect(cx + 56, groundY - 34, 12, 34);        // 正面柱
+      ctx.fillStyle = '#404040';
+      ctx.fillRect(cx + 52, groundY - 36, 20, 6);         // 傘
+      ctx.fillStyle = 'rgba(255,230,120,0.55)';
+      ctx.beginPath();
+      ctx.arc(cx + 62, groundY - 22, 5, 0, Math.PI * 2); // 灯り
+      ctx.fill();
+      break;
+    }
+    case 'garden_paradise': {
+      // 地面グラデーション（明るい草）
+      const paraGrad = ctx.createRadialGradient(cx, groundY - 4, 10, cx, groundY - 4, 70);
+      paraGrad.addColorStop(0, 'rgba(60,160,60,0.30)');
+      paraGrad.addColorStop(1, 'rgba(30,100,30,0)');
+      ctx.fillStyle = paraGrad;
+      ctx.beginPath();
+      ctx.ellipse(cx, groundY - 4, 80, 16, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // ヤシの木（右）
+      ctx.fillStyle = '#7A5020';
+      ctx.fillRect(cx + 72 + 2, groundY - 60, 6, 62);    // 右面
+      ctx.fillStyle = '#9A6828';
+      ctx.fillRect(cx + 68, groundY - 60, 7, 62);         // 幹
+      // 葉
+      const palmLeaves = [
+        { ax: -28, ay: -18 }, { ax: -14, ay: -28 }, { ax: 6, ay: -30 },
+        { ax: 22, ay: -20 }, { ax: 28, ay: -8 },
+      ];
+      palmLeaves.forEach(l => {
+        ctx.strokeStyle = '#2A9A2A';
+        ctx.lineWidth = 3.5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(cx + 71, groundY - 60);
+        ctx.quadraticCurveTo(
+          cx + 71 + l.ax * 0.5, groundY - 60 + l.ay * 0.5,
+          cx + 71 + l.ax, groundY - 60 + l.ay
+        );
+        ctx.stroke();
+      });
+      ctx.lineCap = 'butt';
+      // 色とりどりの花 × 5
+      const paraFlowers = [
+        { x: -80, c: '#FF4488' }, { x: -58, c: '#FFAA00' }, { x: -38, c: '#FF6600' },
+        { x: 38, c: '#44DDAA' }, { x: 56, c: '#FF88CC' },
+      ];
+      paraFlowers.forEach(f => {
+        ctx.fillStyle = '#22AA22';
+        ctx.fillRect(cx + f.x - 1, groundY - 20, 2, 20);
+        for (let p = 0; p < 5; p++) {
+          const a = (p / 5) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.arc(cx + f.x + Math.cos(a) * 6, groundY - 22 + Math.sin(a) * 4, 5, 0, Math.PI * 2);
+          ctx.fillStyle = f.c;
+          ctx.fill();
+        }
+        ctx.beginPath();
+        ctx.arc(cx + f.x, groundY - 22, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFAA';
+        ctx.fill();
+      });
+      // 蝶
+      ctx.fillStyle = 'rgba(255,200,50,0.7)';
+      ctx.beginPath();
+      ctx.ellipse(cx - 20, groundY - 38, 8, 5, 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(cx - 12, groundY - 36, 6, 4, -0.5, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 'garden_void': {
+      // 暗い地面オーラ
+      const voidGrad = ctx.createRadialGradient(cx, groundY - 4, 5, cx, groundY - 4, 90);
+      voidGrad.addColorStop(0, 'rgba(100,0,200,0.45)');
+      voidGrad.addColorStop(0.5, 'rgba(40,0,80,0.25)');
+      voidGrad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = voidGrad;
+      ctx.beginPath();
+      ctx.ellipse(cx, groundY - 4, 90, 20, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // 中央の虚空の裂け目
+      const riftGrad = ctx.createRadialGradient(cx, groundY - 8, 3, cx, groundY - 8, 26);
+      riftGrad.addColorStop(0, 'rgba(160,80,255,0.85)');
+      riftGrad.addColorStop(0.5, 'rgba(60,0,120,0.5)');
+      riftGrad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = riftGrad;
+      ctx.beginPath();
+      ctx.ellipse(cx, groundY - 8, 26, 10, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // 浮遊する暗黒の結晶 × 4
+      const crystals = [
+        { ox: -62, h: 38, c1: '#6020A8', c2: '#3A1060' },
+        { ox: -30, h: 28, c1: '#8030C8', c2: '#4A1480' },
+        { ox:  28, h: 32, c1: '#7028B8', c2: '#401070' },
+        { ox:  60, h: 42, c1: '#5018A0', c2: '#300C58' },
+      ];
+      crystals.forEach(cr => {
+        // 影
+        ctx.fillStyle = 'rgba(80,0,160,0.3)';
+        ctx.beginPath();
+        ctx.ellipse(cx + cr.ox + 3, groundY - 2, 10, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // 結晶本体
+        ctx.fillStyle = cr.c1;
+        ctx.beginPath();
+        ctx.moveTo(cx + cr.ox,      groundY - cr.h);
+        ctx.lineTo(cx + cr.ox + 9,  groundY - cr.h * 0.55);
+        ctx.lineTo(cx + cr.ox + 7,  groundY - 4);
+        ctx.lineTo(cx + cr.ox - 5,  groundY - 4);
+        ctx.lineTo(cx + cr.ox - 8,  groundY - cr.h * 0.55);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = cr.c2;
+        ctx.beginPath();
+        ctx.moveTo(cx + cr.ox,      groundY - cr.h);
+        ctx.lineTo(cx + cr.ox + 9,  groundY - cr.h * 0.55);
+        ctx.lineTo(cx + cr.ox + 4,  groundY - cr.h * 0.55);
+        ctx.closePath();
+        ctx.fill();
+        // 光る先端
+        ctx.shadowColor = '#CC88FF';
+        ctx.shadowBlur  = 8;
+        ctx.fillStyle = 'rgba(220,180,255,0.8)';
+        ctx.beginPath();
+        ctx.arc(cx + cr.ox, groundY - cr.h, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+      // 浮遊パーティクル
+      for (let pi = 0; pi < 8; pi++) {
+        const px = cx - 75 + pi * 22 + (pi % 3) * 5;
+        const py = groundY - 18 - (pi % 4) * 10;
+        ctx.fillStyle = `rgba(180,100,255,${0.3 + (pi % 3) * 0.15})`;
+        ctx.beginPath();
+        ctx.arc(px, py, 1.5 + (pi % 2), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    }
     default:
       break;
   }

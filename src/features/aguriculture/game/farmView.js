@@ -374,7 +374,7 @@ function buildInteriorFurnEmbed(farm, page = 0) {
   const house      = farm.house ?? { ...DEFAULT_HOUSE };
   const owned      = farm.ownedHouseItems ?? [];
   const placed     = house.furniture ?? [];
-  const furnitures = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'furniture');
+  const furnitures = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'furniture').sort(([, a], [, b]) => a.price - b.price);
   const pageItems  = furnitures.slice(page * FURN_PAGE_SIZE, (page + 1) * FURN_PAGE_SIZE);
   const totalPages = Math.ceil(furnitures.length / FURN_PAGE_SIZE);
 
@@ -414,7 +414,7 @@ function buildInteriorFurnButtons(farm, page = 0) {
   const house      = farm.house ?? { ...DEFAULT_HOUSE };
   const owned      = farm.ownedHouseItems ?? [];
   const placed     = house.furniture ?? [];
-  const furnitures = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'furniture');
+  const furnitures = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'furniture').sort(([, a], [, b]) => a.price - b.price);
   const pageItems  = furnitures.slice(page * FURN_PAGE_SIZE, (page + 1) * FURN_PAGE_SIZE);
   const totalPages = Math.ceil(furnitures.length / FURN_PAGE_SIZE);
   const isFull     = placed.length >= MAX_FURNITURE;
@@ -493,7 +493,7 @@ function buildInteriorTopSetupButtons(farm, containerId) {
   const cItem      = HOUSE_ITEMS[containerId];
   const furnitureTop = house.furnitureTop ?? {};
   const topItems   = furnitureTop[containerId] ?? [];
-  const allSmall   = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'small');
+  const allSmall   = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'small').sort(([, a], [, b]) => a.price - b.price);
   const isFull     = topItems.length >= (cItem.topSlots ?? MAX_TOP_ITEMS);
   const rows       = [];
 
@@ -1133,7 +1133,7 @@ function buildHouseShopEmbed(farm) {
 
   const categories = ['wall', 'roof', 'door', 'garden', 'floor', 'wallpaper'];
   const fields = categories.map(cat => {
-    const catItems = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === cat);
+    const catItems = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === cat).sort(([, a], [, b]) => a.price - b.price);
     const lines = catItems.map(([id, item]) => {
       const isOwned    = owned.includes(id);
       const isEquipped = house[cat] === id;
@@ -1174,7 +1174,7 @@ function buildHouseShopCategoryButtons() {
 function buildHouseCategoryEmbed(farm, category) {
   const house  = farm.house ?? { ...DEFAULT_HOUSE };
   const owned  = farm.ownedHouseItems ?? [];
-  const items  = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === category);
+  const items  = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === category).sort(([, a], [, b]) => a.price - b.price);
 
   const lines = items.map(([id, item]) => {
     const isOwned    = owned.includes(id);
@@ -1194,7 +1194,7 @@ function buildHouseCategoryEmbed(farm, category) {
 function buildHouseCategoryButtons(farm, category) {
   const house = farm.house ?? { ...DEFAULT_HOUSE };
   const owned = farm.ownedHouseItems ?? [];
-  const items = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === category);
+  const items = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === category).sort(([, a], [, b]) => a.price - b.price);
   const rows  = [];
 
   for (let i = 0; i < items.length; i += 5) {
@@ -1230,7 +1230,7 @@ function buildFurnitureEmbed(farm, page = 0) {
   const house      = farm.house ?? { ...DEFAULT_HOUSE };
   const owned      = farm.ownedHouseItems ?? [];
   const placed     = house.furniture ?? [];
-  const furnitures = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'furniture');
+  const furnitures = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'furniture').sort(([, a], [, b]) => a.price - b.price);
   const pageItems  = furnitures.slice(page * FURN_PAGE_SIZE, (page + 1) * FURN_PAGE_SIZE);
   const totalPages = Math.ceil(furnitures.length / FURN_PAGE_SIZE);
 
@@ -1269,7 +1269,7 @@ function buildFurnitureButtons(farm, page = 0) {
   const house      = farm.house ?? { ...DEFAULT_HOUSE };
   const owned      = farm.ownedHouseItems ?? [];
   const placed     = house.furniture ?? [];
-  const furnitures = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'furniture');
+  const furnitures = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'furniture').sort(([, a], [, b]) => a.price - b.price);
   const pageItems  = furnitures.slice(page * FURN_PAGE_SIZE, (page + 1) * FURN_PAGE_SIZE);
   const totalPages = Math.ceil(furnitures.length / FURN_PAGE_SIZE);
   const isFull     = placed.length >= MAX_FURNITURE;
@@ -1342,7 +1342,7 @@ function buildFurnitureButtons(farm, page = 0) {
 function buildSmallItemEmbed(farm) {
   const house    = farm.house ?? { ...DEFAULT_HOUSE };
   const owned    = farm.ownedHouseItems ?? [];
-  const items    = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'small');
+  const items    = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'small').sort(([, a], [, b]) => a.price - b.price);
   const furnitureTop = house.furnitureTop ?? {};
 
   // 置ける場所を案内
@@ -1371,7 +1371,7 @@ function buildSmallItemEmbed(farm) {
 
 function buildSmallItemButtons(farm) {
   const owned  = farm.ownedHouseItems ?? [];
-  const items  = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'small');
+  const items  = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'small').sort(([, a], [, b]) => a.price - b.price);
   const rows   = [];
 
   for (let i = 0; i < items.length; i += 4) {
@@ -1403,7 +1403,7 @@ function buildTopSetupEmbed(farm, containerId) {
   const cItem    = HOUSE_ITEMS[containerId];
   const furnitureTop = house.furnitureTop ?? {};
   const topItems = furnitureTop[containerId] ?? [];
-  const allSmall = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'small');
+  const allSmall = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'small').sort(([, a], [, b]) => a.price - b.price);
 
   const currentLines = topItems.length > 0
     ? topItems.map(id => `${HOUSE_ITEMS[id]?.emoji} **${HOUSE_ITEMS[id]?.name}**`).join('  ')
@@ -1429,7 +1429,7 @@ function buildTopSetupButtons(farm, containerId) {
   const cItem    = HOUSE_ITEMS[containerId];
   const furnitureTop = house.furnitureTop ?? {};
   const topItems = furnitureTop[containerId] ?? [];
-  const allSmall = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'small');
+  const allSmall = Object.entries(HOUSE_ITEMS).filter(([, v]) => v.category === 'small').sort(([, a], [, b]) => a.price - b.price);
   const isFull   = topItems.length >= (cItem.topSlots ?? MAX_TOP_ITEMS);
   const rows     = [];
 

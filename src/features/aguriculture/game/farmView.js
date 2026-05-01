@@ -1072,6 +1072,18 @@ function buildShopButtons(farm) {
 async function handleShopButton(interaction) {
   const { customId } = interaction;
 
+  const safeReply = async (content) => {
+    try {
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({ content, flags: 64 });
+      } else {
+        await interaction.reply({ content, flags: 64 });
+      }
+    } catch { /* ignore */ }
+  };
+
+  try {
+
   if (customId === 'farm_unlock_slot') {
     const farm = await loadFarm(interaction.user.id);
     const nextSlot = farm.slots.length;
@@ -1105,6 +1117,11 @@ async function handleShopButton(interaction) {
     await interaction.update({ embeds: [buildShopEmbed(farm)], components: buildShopButtons(farm) });
     const priceStr = crop.buy === 0 ? '無料で' : `${crop.buy} G で`;
     await interaction.followUp({ content: `✅ ${crop.emoji} **${crop.name}** の種を${priceStr}購入！（残: ${farm.coins} G）`, ephemeral: true });
+  }
+
+  } catch (err) {
+    console.error('[ShopButton Error]:', err?.rawError ?? err);
+    await safeReply('⚠️ エラーが発生しました。');
   }
 }
 

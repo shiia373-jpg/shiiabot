@@ -22,7 +22,7 @@ for (const mod of botModules) {
 
 const { startFarmUpdater } = require('./features/aguriculture/game/farmUpdater');
 
-client.once('ready', () => {
+client.once('clientReady', () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
   startFarmUpdater(client);
 });

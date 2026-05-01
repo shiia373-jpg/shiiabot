@@ -134,9 +134,7 @@ const HOUSE_ITEMS = {
                         bonus: { qualityUp: 8, coinBonus: 0.10, expBonus: 0.10 } },
   furn_yamii:         { name: 'ヤミー',           category: 'furniture', price: 250000, emoji: '👻',
                         bonus: { qualityUp: 20, coinBonus: 0.30, expBonus: 0.30 } },
-  furn_yamii_plush:   { name: 'ヤミーのぬいぐるみ', category: 'furniture', price: 180000, emoji: '🧸',
-                        bonus: { qualityUp: 16, coinBonus: 0.22, expBonus: 0.22 } },
-
+                        
   // ─── 家具（生活感・新アイテム）──────────────────────────────────────────────
   furn_wood_chair:  { name: '木の椅子',     category: 'furniture', price: 200,  emoji: '🪑' },
   furn_wood_desk:   { name: '木の机',       category: 'furniture', price: 650,  emoji: '📋', topSlots: 2,

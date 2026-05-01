@@ -653,7 +653,7 @@ function buildInteriorPosSelectButtons(farm, itemId) {
       if (posIdx === null) {
         return new ButtonBuilder()
           .setCustomId('farm_room_furn_pos_noop')
-          .setLabel('　')
+          .setLabel('－')
           .setStyle(ButtonStyle.Secondary)
           .setDisabled(true);
       }
@@ -685,7 +685,12 @@ async function handleInteriorFurnButton(interaction) {
 
   // ── エラーラッパー ─────────────────────────────────────────────────────────
   const safeUpdate = async (payload) => {
-    try { await interaction.update(payload); } catch { /* already ack'd */ }
+    try {
+      await interaction.update(payload);
+    } catch {
+      // update 失敗時はフォールバックで reply/followUp
+      await safeReply({ content: '⚠️ 表示を更新できませんでした。もう一度お試しください。' });
+    }
   };
   const safeReply = async (opts) => {
     try {
@@ -703,11 +708,13 @@ async function handleInteriorFurnButton(interaction) {
   if (customId === 'farm_room_furn_manage') {
     const farm = await loadFarm(user.id);
     initFarmHouse(farm);
-    return interaction.update({
+    await safeUpdate({
       embeds: [buildInteriorFurnEmbed(farm, 0)],
       components: buildInteriorFurnButtons(farm, 0),
       files: [],
+      content: null,
     });
+    return;
   }
 
   // ページ切り替え
@@ -715,28 +722,30 @@ async function handleInteriorFurnButton(interaction) {
     const page = parseInt(customId.replace('farm_room_furn_page_', ''), 10);
     const farm = await loadFarm(user.id);
     initFarmHouse(farm);
-    return interaction.update({
+    await safeUpdate({
       embeds: [buildInteriorFurnEmbed(farm, page)],
       components: buildInteriorFurnButtons(farm, page),
       files: [],
+      content: null,
     });
+    return;
   }
 
   // 家具を追加（購入 or 設置）
   if (customId.startsWith('farm_room_furn_add_')) {
     const itemId = customId.replace('farm_room_furn_add_', '');
     const item   = HOUSE_ITEMS[itemId];
-    if (!item) return;
+    if (!item) return safeReply({ content: '❌ 不明な家具です。' });
     const farm = await loadFarm(user.id);
     initFarmHouse(farm);
 
     if (farm.house.furniture.length >= MAX_FURNITURE) {
-      return interaction.reply({ content: `❌ 家具は最大 ${MAX_FURNITURE} 個まで設置できます。`, ephemeral: true });
+      return safeReply({ content: `❌ 家具は最大 ${MAX_FURNITURE} 個まで設置できます。` });
     }
     const isOwned = farm.ownedHouseItems.includes(itemId);
     if (!isOwned) {
       if (farm.coins < item.price) {
-        return interaction.reply({ content: `❌ コインが足りません（必要: ${item.price} G）`, ephemeral: true });
+        return safeReply({ content: `❌ コインが足りません（必要: ${item.price} G）` });
       }
       farm.coins -= item.price;
       farm.ownedHouseItems.push(itemId);
@@ -765,11 +774,13 @@ async function handleInteriorFurnButton(interaction) {
     if (farm.house.furnitureTop) delete farm.house.furnitureTop[itemId];
     await saveFarm(user.id, farm);
 
-    return interaction.update({
+    await safeUpdate({
       embeds: [buildInteriorFurnEmbed(farm, 0)],
       components: buildInteriorFurnButtons(farm, 0),
       files: [],
+      content: null,
     });
+    return;
   }
 
   // 机・棚の上を整理（入室中）
@@ -779,11 +790,13 @@ async function handleInteriorFurnButton(interaction) {
     initFarmHouse(farm);
     if (!farm.house.furnitureTop) farm.house.furnitureTop = {};
 
-    return interaction.update({
+    await safeUpdate({
       embeds: [buildInteriorTopSetupEmbed(farm, containerId)],
       components: buildInteriorTopSetupButtons(farm, containerId),
       files: [],
+      content: null,
     });
+    return;
   }
 
   // 小物を置く（入室中）
@@ -795,7 +808,7 @@ async function handleInteriorFurnButton(interaction) {
       if (rest.startsWith(cKey + '_')) { cId = cKey; iId = rest.slice(cKey.length + 1); break; }
     }
     if (!cId || !iId || !HOUSE_ITEMS[cId] || !HOUSE_ITEMS[iId]) {
-      return interaction.reply({ content: '❌ 不明なアイテムです。', ephemeral: true });
+      return safeReply({ content: '❌ 不明なアイテムです。' });
     }
     const farm = await loadFarm(user.id);
     initFarmHouse(farm);
@@ -804,16 +817,18 @@ async function handleInteriorFurnButton(interaction) {
 
     const topSlots = HOUSE_ITEMS[cId].topSlots ?? MAX_TOP_ITEMS;
     if (farm.house.furnitureTop[cId].length >= topSlots) {
-      return interaction.reply({ content: `❌ もう置けません（最大${topSlots}個）`, ephemeral: true });
+      return safeReply({ content: `❌ もう置けません（最大${topSlots}個）` });
     }
     farm.house.furnitureTop[cId].push(iId);
     await saveFarm(user.id, farm);
 
-    return interaction.update({
+    await safeUpdate({
       embeds: [buildInteriorTopSetupEmbed(farm, cId)],
       components: buildInteriorTopSetupButtons(farm, cId),
       files: [],
+      content: null,
     });
+    return;
   }
 
   // 小物を外す（入室中）
@@ -824,18 +839,20 @@ async function handleInteriorFurnButton(interaction) {
     for (const cKey of allContainers) {
       if (rest.startsWith(cKey + '_')) { cId = cKey; iId = rest.slice(cKey.length + 1); break; }
     }
-    if (!cId || !iId) return interaction.reply({ content: '❌ 不明なアイテムです。', ephemeral: true });
+    if (!cId || !iId) return safeReply({ content: '❌ 不明なアイテムです。' });
     const farm = await loadFarm(user.id);
     initFarmHouse(farm);
     if (!farm.house.furnitureTop) farm.house.furnitureTop = {};
     farm.house.furnitureTop[cId] = (farm.house.furnitureTop[cId] ?? []).filter(id => id !== iId);
     await saveFarm(user.id, farm);
 
-    return interaction.update({
+    await safeUpdate({
       embeds: [buildInteriorTopSetupEmbed(farm, cId)],
       components: buildInteriorTopSetupButtons(farm, cId),
       files: [],
+      content: null,
     });
+    return;
   }
 
   // 小物ショップを ephemeral で開く（入室中）
@@ -853,11 +870,13 @@ async function handleInteriorFurnButton(interaction) {
   if (customId === 'farm_room_furn_move_menu') {
     const farm = await loadFarm(user.id);
     initFarmHouse(farm);
-    return interaction.update({
+    await safeUpdate({
       embeds: [buildInteriorMoveMenuEmbed(farm)],
       components: buildInteriorMoveMenuButtons(farm),
       files: [],
+      content: null,
     });
+    return;
   }
 
   // ── 家具選択 → 位置グリッドへ ──
@@ -866,11 +885,13 @@ async function handleInteriorFurnButton(interaction) {
     if (!HOUSE_ITEMS[itemId]) return safeReply({ content: '❌ 不明な家具です。' });
     const farm = await loadFarm(user.id);
     initFarmHouse(farm);
-    return interaction.update({
+    await safeUpdate({
       embeds: [buildInteriorPosSelectEmbed(farm, itemId)],
       components: buildInteriorPosSelectButtons(farm, itemId),
       files: [],
+      content: null,
     });
+    return;
   }
 
   // ── 位置確定 → 保存 → 家具一覧に戻る ──
@@ -920,6 +941,11 @@ async function handleInteriorFurnButton(interaction) {
 
   // ── どのハンドラにもマッチしなかった場合のフォールバック ──
   await safeReply({ content: '❌ 不明な操作です。' });
+
+  } catch (err) {
+    console.error('[InteriorFurnButton Error]:', err);
+    await safeReply({ content: '⚠️ エラーが発生しました。' });
+  }
 }
 
 // members: [{ id, displayName }]  vcName: VCの名前
@@ -1429,6 +1455,18 @@ function buildTopSetupButtons(farm, containerId) {
 async function handleHouseShopButton(interaction) {
   const { customId } = interaction;
 
+  const safeReply = async (content) => {
+    try {
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({ content, ephemeral: true });
+      } else {
+        await interaction.reply({ content, ephemeral: true });
+      }
+    } catch { /* ignore */ }
+  };
+
+  try {
+
   if (customId === 'farm_house_shop') {
     const farm = await loadFarm(interaction.user.id);
     if (!farm.house) farm.house = { ...DEFAULT_HOUSE };
@@ -1674,6 +1712,11 @@ async function handleHouseShopButton(interaction) {
     // 農場画像も更新
     const payload = await buildFarmPayload(interaction.user.id);
     await interaction.message.edit(payload).catch(() => {});
+  }
+
+  } catch (err) {
+    console.error('[HouseShopButton Error]:', err);
+    await safeReply('⚠️ エラーが発生しました。');
   }
 }
 

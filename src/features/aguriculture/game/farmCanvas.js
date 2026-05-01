@@ -19,8 +19,7 @@ const DY          = 16;   // 3D 上方向オフセット（右面の傾き）
 const ROW_GAP     = PAD + DY + 4;  // 行間（上面が前行に被らないよう DY より大きく）
 const HEADER_H    = 62;
 const HOUSE_EXT_H = 274;
-const INTERIOR_H  = 100;
-const HOUSE_H     = HOUSE_EXT_H + INTERIOR_H;
+const HOUSE_H     = HOUSE_EXT_H;
 // CANVAS_W = PAD + 3*(CELL_W+PAD) + DX + margin
 const CANVAS_W    = PAD + COLS * (CELL_W + PAD) + DX + 6;  // ≈ 520
 
@@ -52,6 +51,20 @@ function roundRect(ctx, x, y, w, h, r) {
 function hexAlpha(hex, a) {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+function lighten(hex, amount) {
+  const n = parseInt(hex.replace('#',''), 16);
+  const r = Math.min(255, ((n >> 16) & 255) + amount);
+  const g = Math.min(255, ((n >>  8) & 255) + amount);
+  const b = Math.min(255, ( n        & 255) + amount);
+  return `rgb(${r},${g},${b})`;
+}
+function darken(hex, amount) {
+  const n = parseInt(hex.replace('#',''), 16);
+  const r = Math.max(0, ((n >> 16) & 255) - amount);
+  const g = Math.max(0, ((n >>  8) & 255) - amount);
+  const b = Math.max(0, ( n        & 255) - amount);
+  return `rgb(${r},${g},${b})`;
 }
 
 // ── プログレスバー ──────────────────────────────────────────────────────────
@@ -1961,17 +1974,245 @@ function drawFurnItem(ctx, id, cx, cy, size) {
     drawTeddyBear(ctx, cx, cy, size * 0.52);
     return;
   }
-  // デフォルト: 絵文字
+  // その他: シンプルな形で描画（絵文字はnapi-rs/canvasで非対応）
   const item = HOUSE_ITEMS[id];
   if (!item) return;
-  ctx.shadowColor = 'rgba(255,210,100,0.28)';
-  ctx.shadowBlur  = size * 0.28;
-  ctx.font         = `${size}px sans-serif`;
-  ctx.textAlign    = 'center';
-  ctx.textBaseline = 'bottom';
-  ctx.fillStyle    = '#FFFFFF';
-  ctx.fillText(item.emoji, cx, cy);
-  ctx.shadowBlur = 0;
+  const s = size;
+  // 家具ごとの色マップ
+  const colorMap = {
+    furn_sofa:         '#8B4513', furn_bed:           '#4169E1',
+    furn_rug:          '#C02020', furn_plant:         '#228B22',
+    furn_table:        '#A0522D', furn_painting:      '#DAA520',
+    furn_fireplace:    '#CC3300', furn_trophy:        '#FFD700',
+    furn_clock:        '#555566', furn_piano:         '#111111',
+    furn_aquarium:     '#006994', furn_golden_mirror: '#DAA520',
+    furn_magic_bonsai: '#2E8B57', furn_ancient_altar: '#607080',
+    furn_legend_sword: '#B8C8D8', furn_void_orb:      '#1A1050',
+    furn_chest:        '#8B5A1A',
+  };
+  const baseColor = colorMap[id] ?? '#6688AA';
+  drawGenericFurniture(ctx, id, cx, cy, s, baseColor, item.name);
+}
+
+function drawGenericFurniture(ctx, id, cx, cy, s, color, name) {
+  // ── 宝箱 ──
+  if (id === 'furn_chest') {
+    const w = s * 0.90, h = s * 0.62;
+    const x = cx - w / 2, y = cy - h;
+    // 影
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath(); ctx.ellipse(cx, cy + 2, w * 0.42, h * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+    // 本体
+    const bodyGrad = ctx.createLinearGradient(x, y + h*0.4, x, y + h);
+    bodyGrad.addColorStop(0, '#C87820'); bodyGrad.addColorStop(1, '#7A4010');
+    ctx.fillStyle = bodyGrad; ctx.fillRect(x, y + h * 0.35, w, h * 0.65);
+    // 蓋
+    const lidGrad = ctx.createLinearGradient(x, y, x, y + h * 0.42);
+    lidGrad.addColorStop(0, '#E09030'); lidGrad.addColorStop(1, '#A06020');
+    ctx.fillStyle = lidGrad;
+    ctx.beginPath(); ctx.moveTo(x, y + h*0.38); ctx.lineTo(x + w, y + h*0.38);
+    ctx.lineTo(x + w, y + h*0.10); ctx.quadraticCurveTo(x + w, y, cx, y);
+    ctx.quadraticCurveTo(x, y, x, y + h*0.10); ctx.closePath(); ctx.fill();
+    // 金具
+    ctx.strokeStyle = '#FFD060'; ctx.lineWidth = Math.max(1, s * 0.03);
+    ctx.strokeRect(x + 2, y + h*0.38, w - 4, h * 0.63);
+    ctx.fillStyle = '#FFD060';
+    ctx.fillRect(cx - s*0.07, y + h*0.30, s*0.14, h*0.22);
+    ctx.beginPath(); ctx.arc(cx, y + h*0.41, s*0.06, 0, Math.PI*2); ctx.fill();
+    // 光沢
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.beginPath(); ctx.ellipse(cx - w*0.18, y + h*0.12, w*0.14, h*0.07, -0.3, 0, Math.PI*2); ctx.fill();
+    return;
+  }
+  // ── ソファ ──
+  if (id === 'furn_sofa') {
+    const w = s * 1.0, h = s * 0.60;
+    const x = cx - w/2, y = cy - h;
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath(); ctx.ellipse(cx, cy+2, w*0.45, h*0.12, 0,0,Math.PI*2); ctx.fill();
+    // 座面
+    const seatGrad = ctx.createLinearGradient(x,y+h*0.4,x,y+h);
+    seatGrad.addColorStop(0, lighten(color,30)); seatGrad.addColorStop(1, color);
+    ctx.fillStyle = seatGrad; ctx.fillRect(x + w*0.08, y + h*0.45, w*0.84, h*0.55);
+    // 背もたれ
+    const backGrad = ctx.createLinearGradient(x,y,x,y+h*0.55);
+    backGrad.addColorStop(0, lighten(color,40)); backGrad.addColorStop(1, lighten(color,15));
+    ctx.fillStyle = backGrad; ctx.fillRect(x + w*0.08, y, w*0.84, h*0.52);
+    // 肘掛け
+    ctx.fillStyle = darken(color, 20);
+    ctx.fillRect(x, y+h*0.22, w*0.10, h*0.78);
+    ctx.fillRect(x+w*0.90, y+h*0.22, w*0.10, h*0.78);
+    // クッション線
+    ctx.strokeStyle = darken(color,30); ctx.lineWidth = Math.max(1, s*0.025);
+    ctx.beginPath(); ctx.moveTo(cx, y+h*0.02); ctx.lineTo(cx, y+h*0.50); ctx.stroke();
+    return;
+  }
+  // ── ベッド ──
+  if (id === 'furn_bed') {
+    const w = s * 0.85, h = s * 0.70;
+    const x = cx - w/2, y = cy - h;
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath(); ctx.ellipse(cx,cy+2,w*0.4,h*0.1,0,0,Math.PI*2); ctx.fill();
+    // フレーム
+    ctx.fillStyle = '#8B5A1A'; ctx.fillRect(x, y+h*0.12, w, h*0.88);
+    // マットレス
+    const matGrad = ctx.createLinearGradient(x,y+h*0.2,x,y+h*0.85);
+    matGrad.addColorStop(0,'#F0F0F8'); matGrad.addColorStop(1,'#D0D0E0');
+    ctx.fillStyle = matGrad; ctx.fillRect(x+w*0.05, y+h*0.22, w*0.90, h*0.62);
+    // 枕
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(x+w*0.08, y+h*0.26, w*0.28, h*0.20);
+    ctx.fillRect(x+w*0.42, y+h*0.26, w*0.28, h*0.20);
+    // ヘッドボード
+    const hdGrad = ctx.createLinearGradient(x,y,x,y+h*0.18);
+    hdGrad.addColorStop(0,'#C07030'); hdGrad.addColorStop(1,'#8B5A1A');
+    ctx.fillStyle = hdGrad; ctx.fillRect(x, y, w, h*0.18);
+    return;
+  }
+  // ── 絨毯 ──
+  if (id === 'furn_rug') {
+    const rw = s*0.90, rh = s*0.38;
+    const rx = cx - rw/2, ry = cy - rh;
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.fillRect(rx+4, ry+4, rw, rh);
+    ctx.fillStyle = color; ctx.fillRect(rx, ry, rw, rh);
+    // ボーダー
+    ctx.strokeStyle = lighten(color,40); ctx.lineWidth = Math.max(1.5, s*0.03);
+    ctx.strokeRect(rx+s*0.05, ry+s*0.04, rw-s*0.10, rh-s*0.08);
+    // 中央模様
+    ctx.fillStyle = lighten(color,50);
+    ctx.beginPath(); ctx.ellipse(cx, cy-rh*0.5, rw*0.20, rh*0.28, 0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.ellipse(cx, cy-rh*0.5, rw*0.10, rh*0.15, 0,0,Math.PI*2); ctx.fill();
+    return;
+  }
+  // ── 観葉植物 ──
+  if (id === 'furn_plant') {
+    const r = s * 0.44;
+    // 鉢
+    ctx.fillStyle = '#C06030';
+    ctx.beginPath(); ctx.moveTo(cx-r*0.38, cy); ctx.lineTo(cx+r*0.38, cy);
+    ctx.lineTo(cx+r*0.28, cy-r*0.45); ctx.lineTo(cx-r*0.28, cy-r*0.45); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#A04020';
+    ctx.fillRect(cx-r*0.32, cy-r*0.52, r*0.64, r*0.10);
+    // 土
+    ctx.fillStyle = '#3A2010'; ctx.fillRect(cx-r*0.28, cy-r*0.50, r*0.56, r*0.08);
+    // 葉
+    const leaves = [{ax:-0.4,ay:-0.9,rot:0.5},{ax:0.4,ay:-0.9,rot:-0.5},{ax:0,ay:-1.1,rot:0},{ax:-0.6,ay:-0.7,rot:0.8},{ax:0.6,ay:-0.7,rot:-0.8}];
+    leaves.forEach(l => {
+      ctx.save(); ctx.translate(cx+l.ax*r*0.3, cy+l.ay*r*0.5);
+      ctx.rotate(l.rot);
+      const lg = ctx.createLinearGradient(0,-r*0.4,0,0);
+      lg.addColorStop(0,'#44CC44'); lg.addColorStop(1,'#228822');
+      ctx.fillStyle = lg;
+      ctx.beginPath(); ctx.ellipse(0,-r*0.2, r*0.20, r*0.40, 0,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+    });
+    return;
+  }
+  // ── テーブル ──
+  if (id === 'furn_table') {
+    const w = s*0.85, h = s*0.55;
+    const x = cx - w/2, y = cy - h;
+    ctx.fillStyle='rgba(0,0,0,0.18)';
+    ctx.beginPath(); ctx.ellipse(cx,cy+2,w*0.4,h*0.1,0,0,Math.PI*2); ctx.fill();
+    // 脚
+    ctx.fillStyle = darken(color,20);
+    ctx.fillRect(x+w*0.06, y+h*0.28, w*0.08, h*0.72);
+    ctx.fillRect(x+w*0.86, y+h*0.28, w*0.08, h*0.72);
+    // 天板
+    const tgGrad = ctx.createLinearGradient(x,y,x,y+h*0.30);
+    tgGrad.addColorStop(0, lighten(color,30)); tgGrad.addColorStop(1, color);
+    ctx.fillStyle = tgGrad; ctx.fillRect(x, y, w, h*0.30);
+    return;
+  }
+  // ── 絵画 ──
+  if (id === 'furn_painting') {
+    const w = s*0.72, h = s*0.60;
+    const x = cx - w/2, y = cy - h*1.1;
+    // 外枠
+    ctx.fillStyle = '#8B6914';
+    ctx.fillRect(x-3, y-3, w+6, h+6);
+    // キャンバス
+    const colors2 = ['#FF6644','#44AAFF','#FFDD44','#44DD88'];
+    ctx.fillStyle = '#F8F0E0'; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = colors2[0]; ctx.fillRect(x+w*0.08, y+h*0.10, w*0.38, h*0.55);
+    ctx.fillStyle = colors2[1]; ctx.beginPath(); ctx.arc(x+w*0.72, y+h*0.35, w*0.18, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = colors2[2]; ctx.fillRect(x+w*0.15, y+h*0.68, w*0.65, h*0.20);
+    // 光沢
+    ctx.fillStyle='rgba(255,255,255,0.18)';
+    ctx.fillRect(x, y, w, h*0.12);
+    return;
+  }
+  // ── 暖炉 ──
+  if (id === 'furn_fireplace') {
+    const w=s*0.80, h=s*0.80, x=cx-w/2, y=cy-h;
+    ctx.fillStyle='rgba(0,0,0,0.2)';
+    ctx.beginPath(); ctx.ellipse(cx,cy+2,w*0.35,h*0.1,0,0,Math.PI*2); ctx.fill();
+    // 石の外壁
+    ctx.fillStyle='#888892'; ctx.fillRect(x,y,w,h);
+    // アーチ型開口
+    ctx.fillStyle='#181820';
+    ctx.beginPath(); ctx.moveTo(x+w*0.15, y+h); ctx.lineTo(x+w*0.15, y+h*0.40);
+    ctx.quadraticCurveTo(cx, y+h*0.10, x+w*0.85, y+h*0.40);
+    ctx.lineTo(x+w*0.85, y+h); ctx.closePath(); ctx.fill();
+    // 炎
+    const flames = [{x:0,c:'#FF6600'},{x:-0.12,c:'#FF9900'},{x:0.12,c:'#FF4400'}];
+    flames.forEach(f => {
+      const fx = cx+f.x*w, fy1 = cy-h*0.25, fy2 = cy-h*0.60;
+      const flameGrad = ctx.createLinearGradient(fx, fy2, fx, fy1);
+      flameGrad.addColorStop(0, f.c); flameGrad.addColorStop(1, '#FFEE00');
+      ctx.fillStyle = flameGrad;
+      ctx.beginPath(); ctx.moveTo(fx-w*0.08, fy1); ctx.quadraticCurveTo(fx-w*0.04, fy2, fx, fy2-h*0.06);
+      ctx.quadraticCurveTo(fx+w*0.04, fy2, fx+w*0.08, fy1); ctx.closePath(); ctx.fill();
+    });
+    // 石テクスチャ
+    ctx.strokeStyle='rgba(0,0,0,0.2)'; ctx.lineWidth=1;
+    for(let sy=y+h*0.15;sy<y+h;sy+=h*0.20){
+      ctx.beginPath(); ctx.moveTo(x,sy); ctx.lineTo(x+w,sy); ctx.stroke();
+    }
+    return;
+  }
+  // ── トロフィー ──
+  if (id === 'furn_trophy') {
+    const r=s*0.42;
+    ctx.fillStyle='rgba(0,0,0,0.2)';
+    ctx.beginPath(); ctx.ellipse(cx,cy+2,r*0.4,r*0.1,0,0,Math.PI*2); ctx.fill();
+    // 台座
+    const baseGrad=ctx.createLinearGradient(cx-r*0.4,cy,cx+r*0.4,cy);
+    baseGrad.addColorStop(0,'#C8A020'); baseGrad.addColorStop(0.5,'#FFE060'); baseGrad.addColorStop(1,'#C8A020');
+    ctx.fillStyle=baseGrad; ctx.fillRect(cx-r*0.40,cy-r*0.18,r*0.80,r*0.18);
+    ctx.fillRect(cx-r*0.22,cy-r*0.34,r*0.44,r*0.20);
+    // カップ
+    ctx.fillStyle=baseGrad;
+    ctx.beginPath(); ctx.moveTo(cx-r*0.42,cy-r*0.38); ctx.lineTo(cx-r*0.50,cy-r*0.90);
+    ctx.quadraticCurveTo(cx-r*0.50,cy-r*1.05,cx,cy-r*1.05);
+    ctx.quadraticCurveTo(cx+r*0.50,cy-r*1.05,cx+r*0.50,cy-r*0.90);
+    ctx.lineTo(cx+r*0.42,cy-r*0.38); ctx.closePath(); ctx.fill();
+    // 持ち手
+    ctx.strokeStyle='#FFE060'; ctx.lineWidth=Math.max(1.5,r*0.08);
+    ctx.beginPath(); ctx.arc(cx-r*0.53,cy-r*0.68,r*0.14,0.5*Math.PI,1.5*Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx+r*0.53,cy-r*0.68,r*0.14,-0.5*Math.PI,0.5*Math.PI); ctx.stroke();
+    // 光沢
+    ctx.fillStyle='rgba(255,255,255,0.3)';
+    ctx.beginPath(); ctx.ellipse(cx-r*0.12,cy-r*0.80,r*0.08,r*0.16,-0.4,0,Math.PI*2); ctx.fill();
+    return;
+  }
+  // ── その他（ラベル付き汎用ボックス）──
+  const bw = s*0.80, bh = s*0.60;
+  const bx = cx - bw/2, by = cy - bh;
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.beginPath(); ctx.ellipse(cx, cy+2, bw*0.42, bh*0.12, 0,0,Math.PI*2); ctx.fill();
+  const boxGrad = ctx.createLinearGradient(bx, by, bx, by+bh);
+  boxGrad.addColorStop(0, lighten(color, 25)); boxGrad.addColorStop(1, color);
+  ctx.fillStyle = boxGrad; ctx.fillRect(bx, by, bw, bh);
+  ctx.fillStyle = darken(color, 20); ctx.fillRect(bx+2, by+2, bw-4, bh-4);
+  ctx.fillStyle = boxGrad; ctx.fillRect(bx+4, by+4, bw-8, bh-8);
+  const fs2 = Math.max(8, Math.floor(s * 0.14));
+  ctx.font = `bold ${fs2}px sans-serif`;
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText((name ?? '').slice(0, 5), cx, cy - bh*0.50);
 }
 
 // ── ヤミー描画ヘルパー ────────────────────────────────────────────────────────
@@ -3012,7 +3253,6 @@ function generateFarmImage(farm) {
   ctx.fillRect(0, groundY, CANVAS_W, 6);
 
   drawHouse(ctx, farm.house, HEADER_H + 8);
-  drawInterior(ctx, farm.house, HEADER_H + HOUSE_EXT_H);
 
   // ── 農場スロットセクション背景 ──
   const farmSectionY = HEADER_H + HOUSE_H;
@@ -3319,7 +3559,7 @@ function generateInteriorImage(farm, ownerName = null) {
     }
 
     const { x, y, scale } = perspPos(pos.fx, pos.fy);
-    const fs = Math.floor(148 * scale);
+    const fs = Math.floor(108 * scale);
 
     // 床影
     ctx.fillStyle = 'rgba(0,0,0,0.20)';

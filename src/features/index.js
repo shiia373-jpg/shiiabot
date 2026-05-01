@@ -4,6 +4,7 @@ const path = require('path');
 const commands = [];
 const buttonHandlers = [];
 const modalHandlers = [];
+const selectMenuHandlers = [];
 
 // features/ 内の各ディレクトリを自動ロード
 for (const entry of fs.readdirSync(__dirname)) {
@@ -14,8 +15,9 @@ for (const entry of fs.readdirSync(__dirname)) {
 
   const mod = require(indexFile);
   for (const cmd of mod.commands ?? []) commands.push(cmd);
-  if (mod.handleButton) buttonHandlers.push(mod.handleButton);
-  if (mod.handleModal)  modalHandlers.push(mod.handleModal);
+  if (mod.handleButton)     buttonHandlers.push(mod.handleButton);
+  if (mod.handleModal)      modalHandlers.push(mod.handleModal);
+  if (mod.handleSelectMenu) selectMenuHandlers.push(mod.handleSelectMenu);
 }
 
 async function handleButton(interaction) {
@@ -45,4 +47,21 @@ async function handleModal(interaction) {
   }
 }
 
-module.exports = { commands, handleButton, handleModal };
+async function handleSelectMenu(interaction) {
+  for (const handler of selectMenuHandlers) {
+    try {
+      await handler(interaction);
+    } catch (err) {
+      console.error('[SelectMenu Error]', err?.rawError ?? err);
+      try {
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp({ content: '⚠️ エラーが発生しました。', flags: 64 });
+        } else {
+          await interaction.reply({ content: '⚠️ エラーが発生しました。', flags: 64 });
+        }
+      } catch { /* ignore */ }
+    }
+  }
+}
+
+module.exports = { commands, handleButton, handleModal, handleSelectMenu };

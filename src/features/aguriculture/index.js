@@ -83,28 +83,35 @@ async function handleButton(interaction) {
       return interaction.editReply(await buildInteriorPayload(targetId, ownerName));
     }
 
-    // ── 訪問メニュー（同じ VC のメンバーから選択）──
+    // ── 訪問メニュー ──
     if (customId === 'farm_visit_menu') {
       const vc = interaction.member?.voice?.channel;
       if (!vc) {
-        return interaction.followUp({
+        // ここは deferUpdate していないので followUp + ephemeral で正解
+        return interaction.reply({
           content: '❌ 訪問するにはボイスチャンネルに参加してください。',
           ephemeral: true,
         });
       }
+
+      // キャッシュを強制取得（古い情報の回避）
       const members = [...vc.members.values()]
         .filter(m => !m.user.bot && m.id !== user.id)
         .slice(0, 25)
         .map(m => ({ id: m.id, displayName: m.displayName }));
+
       if (members.length === 0) {
-        return interaction.followUp({
+        return interaction.reply({
           content: `❌ VC「**${vc.name}**」に他のメンバーがいません。`,
           ephemeral: true,
         });
       }
-      return interaction.followUp(buildVCVisitPayload(members, vc.name));
-    }
 
+      // メイン画面を更新してセレクトメニューを出す
+      await interaction.deferUpdate(); 
+      return interaction.editReply(buildVCVisitPayload(members, vc.name));
+    }
+    
     // ── 農場表示・更新 ──
     if (customId === 'farm_refresh') {
       await setRoomView(user.id, false);  // 自動更新を再開

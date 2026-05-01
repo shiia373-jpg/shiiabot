@@ -720,8 +720,7 @@ function drawHouse(ctx, house, startY) {
   ctx.ellipse(cx, fndY + FND_H + 6, 140, 16, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // ── 庭 ──
-  drawGarden(ctx, house.garden, cx, fndY + FND_H);
+  // 庭は generateFarmImage で描画
 
   // ── 基礎（3D ボックス）──
   // 基礎右面
@@ -2684,30 +2683,46 @@ function drawYamiiPlush(ctx, x, y, r) {
   ctx.textBaseline = 'alphabetic';
 }
 
-// ── 庭の描画 ─────────────────────────────────────────────────────────────────
-function drawGarden(ctx, gardenId, cx, groundY) {
+// ── 庭の描画（全画面） ────────────────────────────────────────────────────────
+function drawGarden(ctx, gardenId, cx, groundY, startY = 0, sectionH = 274, canvasW = 520) {
+  const skyTop = startY;
+  const skyH   = groundY - startY;
   switch (gardenId) {
     case 'garden_flowers': {
-      const flowers = [
-        { x: cx - 100, c: '#FF6699' }, { x: cx - 76, c: '#FFD700' },
-        { x: cx - 52, c: '#FF8844' }, { x: cx + 52, c: '#88DD44' },
-        { x: cx + 76, c: '#FF6699' }, { x: cx + 100, c: '#FFD700' },
-      ];
-      flowers.forEach(f => {
-        ctx.fillStyle = '#228822';
-        ctx.fillRect(f.x - 1, groundY - 16, 2, 16);
-        ctx.beginPath();
-        ctx.arc(f.x, groundY - 18, 8, 0, Math.PI * 2);
-        ctx.fillStyle = f.c;
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(f.x, groundY - 18, 3, 0, Math.PI * 2);
-        ctx.fillStyle = '#FFFFaa';
-        ctx.fill();
+      // 全画面：春の花畑
+      const bgG = ctx.createLinearGradient(0, skyTop, 0, groundY);
+      bgG.addColorStop(0, '#87CEEB'); bgG.addColorStop(0.6, '#B0E8FF'); bgG.addColorStop(1, '#D4F5A0');
+      ctx.fillStyle = bgG; ctx.fillRect(0, skyTop, canvasW, skyH);
+      // 雲
+      [[cx-140,skyTop+30,50,20],[cx+80,skyTop+20,70,25],[cx-20,skyTop+55,55,18]].forEach(([bx,by,bw,bh])=>{
+        ctx.fillStyle='rgba(255,255,255,0.85)';
+        ctx.beginPath(); ctx.ellipse(bx,by,bw,bh,0,0,Math.PI*2); ctx.fill();
       });
+      // 草原の花（画面下部に広がる）
+      for (let fx2 = 20; fx2 < canvasW - 20; fx2 += 28) {
+        const fc = ['#FF6699','#FFD700','#FF8844','#88DD44','#AA88FF','#FF5577'][Math.floor(fx2/28)%6];
+        ctx.fillStyle = '#228822'; ctx.fillRect(fx2 - 1, groundY - 20, 2, 20);
+        ctx.beginPath(); ctx.arc(fx2, groundY - 22, 7, 0, Math.PI * 2);
+        ctx.fillStyle = fc; ctx.fill();
+        ctx.beginPath(); ctx.arc(fx2, groundY - 22, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFaa'; ctx.fill();
+      }
       break;
     }
     case 'garden_fence': {
+      // 全画面：牧場の空
+      const bgF = ctx.createLinearGradient(0, skyTop, 0, groundY);
+      bgF.addColorStop(0,'#4A90D9'); bgF.addColorStop(0.7,'#87CEEB'); bgF.addColorStop(1,'#C8E8A0');
+      ctx.fillStyle = bgF; ctx.fillRect(0, skyTop, canvasW, skyH);
+      // 丘
+      ctx.fillStyle='#5A9E30';
+      ctx.beginPath(); ctx.ellipse(cx-160, groundY+10, 160, 55, 0, Math.PI, 0); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(cx+160, groundY+10, 150, 50, 0, Math.PI, 0); ctx.fill();
+      // 雲
+      [[cx-100,skyTop+40,60,20],[cx+120,skyTop+30,80,26]].forEach(([bx,by,bw,bh])=>{
+        ctx.fillStyle='rgba(255,255,255,0.9)';
+        ctx.beginPath(); ctx.ellipse(bx,by,bw,bh,0,0,Math.PI*2); ctx.fill();
+      });
       const fw = 260, fx = cx - fw / 2;
       // 奥のレール
       ctx.fillStyle = '#7B5828';
@@ -2726,6 +2741,23 @@ function drawGarden(ctx, gardenId, cx, groundY) {
       break;
     }
     case 'garden_fountain': {
+      // 全画面：優雅な庭園
+      const bgFn = ctx.createLinearGradient(0, skyTop, 0, groundY);
+      bgFn.addColorStop(0,'#1A3A5C'); bgFn.addColorStop(0.5,'#2A5A8C'); bgFn.addColorStop(1,'#3A8A6A');
+      ctx.fillStyle = bgFn; ctx.fillRect(0, skyTop, canvasW, skyH);
+      // 植え込み（左右）
+      ctx.fillStyle='#1A6030';
+      ctx.fillRect(0, groundY-60, 60, 60); ctx.fillRect(canvasW-60, groundY-60, 60, 60);
+      // トピアリー（丸く刈り込んだ木）
+      [[30,groundY-70],[canvasW-30,groundY-70]].forEach(([tx,ty])=>{
+        ctx.fillStyle='#2A8040';
+        ctx.beginPath(); ctx.arc(tx,ty,28,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#1A6030';
+        ctx.beginPath(); ctx.arc(tx-5,ty-5,10,0,Math.PI*2); ctx.fill();
+      });
+      // 池（広い）
+      ctx.fillStyle='rgba(30,80,150,0.35)';
+      ctx.beginPath(); ctx.ellipse(cx, groundY-5, 100, 22, 0,0,Math.PI*2); ctx.fill();
       // 台座（3D）
       ctx.fillStyle = '#606060';
       ctx.beginPath();
@@ -2765,6 +2797,25 @@ function drawGarden(ctx, gardenId, cx, groundY) {
       break;
     }
     case 'garden_statue': {
+      // 全画面：神殿の庭
+      const bgSt = ctx.createLinearGradient(0, skyTop, 0, groundY);
+      bgSt.addColorStop(0,'#1A1A2E'); bgSt.addColorStop(0.5,'#2A2A4A'); bgSt.addColorStop(1,'#3A3020');
+      ctx.fillStyle = bgSt; ctx.fillRect(0, skyTop, canvasW, skyH);
+      // 柱（背景）
+      [cx-160,cx-100,cx+100,cx+160].forEach(px2=>{
+        ctx.fillStyle='rgba(200,180,120,0.25)';
+        ctx.fillRect(px2-8, skyTop+20, 16, skyH-20);
+      });
+      // 神殿の屋根ライン
+      ctx.strokeStyle='rgba(200,180,120,0.4)'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.moveTo(0,skyTop+60); ctx.lineTo(canvasW,skyTop+60); ctx.stroke();
+      // 星（神聖な感じ）
+      for(let i=0;i<20;i++){
+        const sx=Math.sin(i*137.5*Math.PI/180)*canvasW*0.45+cx;
+        const sy=skyTop+10+(i%5)*skyH*0.16;
+        ctx.fillStyle=`rgba(255,230,100,${0.3+i%3*0.15})`;
+        ctx.beginPath(); ctx.arc(sx,sy,1.5,0,Math.PI*2); ctx.fill();
+      }
       // 台座（3D）
       ctx.fillStyle = '#505050';
       ctx.fillRect(cx - 16 + 4, groundY - 10, 32, 10);
@@ -2792,14 +2843,116 @@ function drawGarden(ctx, gardenId, cx, groundY) {
       break;
     }
     case 'garden_zen': {
-      // 砂紋（波紋ライン）
-      ctx.strokeStyle = 'rgba(210,195,160,0.35)';
-      ctx.lineWidth = 1;
-      for (let r = 14; r <= 52; r += 9) {
+      // 全画面：禅庭園 - 霞がかった和の空
+      const zenSkyG = ctx.createLinearGradient(0, skyTop, 0, groundY);
+      zenSkyG.addColorStop(0,   '#C8D8E8');
+      zenSkyG.addColorStop(0.4, '#DDE8D8');
+      zenSkyG.addColorStop(1,   '#E8E4D0');
+      ctx.fillStyle = zenSkyG;
+      ctx.fillRect(0, skyTop, canvasW, skyH);
+
+      // 遠くの山（水墨画風）
+      [
+        { x: 0,       w: 180, h: skyH * 0.50, col: 'rgba(160,170,180,0.45)' },
+        { x: 80,      w: 200, h: skyH * 0.58, col: 'rgba(140,155,165,0.38)' },
+        { x: canvasW - 220, w: 210, h: skyH * 0.52, col: 'rgba(150,160,175,0.42)' },
+        { x: canvasW - 140, w: 180, h: skyH * 0.44, col: 'rgba(170,175,185,0.35)' },
+      ].forEach(m => {
+        ctx.fillStyle = m.col;
         ctx.beginPath();
-        ctx.ellipse(cx, groundY - 6, r, r * 0.32, 0, 0, Math.PI * 2);
+        ctx.moveTo(m.x, groundY);
+        ctx.lineTo(m.x + m.w * 0.18, groundY - m.h * 0.55);
+        ctx.quadraticCurveTo(m.x + m.w * 0.50, groundY - m.h, m.x + m.w * 0.72, groundY - m.h * 0.62);
+        ctx.lineTo(m.x + m.w, groundY);
+        ctx.closePath();
+        ctx.fill();
+      });
+
+      // 霞（地平線付近のぼかし）
+      const hazeG = ctx.createLinearGradient(0, groundY - skyH * 0.28, 0, groundY);
+      hazeG.addColorStop(0, 'rgba(240,235,220,0)');
+      hazeG.addColorStop(1, 'rgba(240,235,220,0.55)');
+      ctx.fillStyle = hazeG;
+      ctx.fillRect(0, groundY - skyH * 0.28, canvasW, skyH * 0.28);
+
+      // 砂利の地面（全幅）
+      const gravelG = ctx.createLinearGradient(0, groundY - 16, 0, groundY + 10);
+      gravelG.addColorStop(0, '#D4C9A0');
+      gravelG.addColorStop(1, '#C8BC94');
+      ctx.fillStyle = gravelG;
+      ctx.fillRect(0, groundY - 8, canvasW, 20);
+
+      // 竹（左端）
+      [
+        { x: 28,  h: skyH * 0.75, w: 7 },
+        { x: 44,  h: skyH * 0.62, w: 6 },
+        { x: 14,  h: skyH * 0.50, w: 5 },
+      ].forEach(b => {
+        // 竹の節
+        for (let seg = 0; seg < 8; seg++) {
+          const segY = groundY - b.h + (b.h / 8) * seg;
+          const segH = b.h / 8;
+          const shade = seg % 2 === 0 ? '#5A8A3A' : '#4A7A2C';
+          ctx.fillStyle = shade;
+          ctx.fillRect(b.x - b.w / 2, segY, b.w, segH - 1);
+          // 節の線
+          ctx.fillStyle = 'rgba(30,60,10,0.5)';
+          ctx.fillRect(b.x - b.w / 2 - 1, segY + segH - 2, b.w + 2, 2);
+        }
+        // 葉（上部に数枚）
+        for (let li = 0; li < 4; li++) {
+          const la = -0.6 + li * 0.45;
+          ctx.strokeStyle = '#3A7020';
+          ctx.lineWidth = 2.2;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(b.x, groundY - b.h + 4);
+          ctx.quadraticCurveTo(
+            b.x + Math.cos(la) * 22, groundY - b.h - 12,
+            b.x + Math.cos(la) * 38, groundY - b.h - 6
+          );
+          ctx.stroke();
+        }
+      });
+
+      // 竹（右端）
+      [
+        { x: canvasW - 30, h: skyH * 0.70, w: 7 },
+        { x: canvasW - 48, h: skyH * 0.56, w: 6 },
+      ].forEach(b => {
+        for (let seg = 0; seg < 8; seg++) {
+          const segY = groundY - b.h + (b.h / 8) * seg;
+          const segH = b.h / 8;
+          ctx.fillStyle = seg % 2 === 0 ? '#5A8A3A' : '#4A7A2C';
+          ctx.fillRect(b.x - b.w / 2, segY, b.w, segH - 1);
+          ctx.fillStyle = 'rgba(30,60,10,0.5)';
+          ctx.fillRect(b.x - b.w / 2 - 1, segY + segH - 2, b.w + 2, 2);
+        }
+        for (let li = 0; li < 3; li++) {
+          const la = Math.PI + 0.3 + li * 0.45;
+          ctx.strokeStyle = '#3A7020';
+          ctx.lineWidth = 2.2;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(b.x, groundY - b.h + 4);
+          ctx.quadraticCurveTo(
+            b.x + Math.cos(la) * 22, groundY - b.h - 12,
+            b.x + Math.cos(la) * 38, groundY - b.h - 6
+          );
+          ctx.stroke();
+        }
+      });
+      ctx.lineCap = 'butt';
+
+      // 砂紋（波紋ライン）
+      ctx.strokeStyle = 'rgba(180,165,120,0.50)';
+      ctx.lineWidth = 1;
+      for (let r = 14; r <= 72; r += 10) {
+        ctx.beginPath();
+        ctx.ellipse(cx, groundY - 6, r, r * 0.28, 0, 0, Math.PI * 2);
         ctx.stroke();
       }
+
       // 置き石 × 3
       const zenStones = [
         { ox: -44, ow: 22, oh: 14 }, { ox: 0, ow: 14, oh: 10 }, { ox: 40, ow: 18, oh: 12 },
@@ -2813,26 +2966,169 @@ function drawGarden(ctx, gardenId, cx, groundY) {
         ctx.beginPath();
         ctx.ellipse(cx + s.ox, groundY - s.oh / 2 - 3, s.ow / 2, s.oh / 2, 0, 0, Math.PI * 2);
         ctx.fill();
-        // ハイライト
         ctx.fillStyle = 'rgba(200,200,210,0.22)';
         ctx.beginPath();
         ctx.ellipse(cx + s.ox - 3, groundY - s.oh / 2 - 5, s.ow / 4, s.oh / 4, -0.4, 0, Math.PI * 2);
         ctx.fill();
       });
+
       // 石灯籠
       ctx.fillStyle = '#484848';
-      ctx.fillRect(cx + 60 + 2, groundY - 34, 12, 34);   // 右面
+      ctx.fillRect(cx + 60 + 2, groundY - 34, 12, 34);
       ctx.fillStyle = '#666666';
-      ctx.fillRect(cx + 56, groundY - 34, 12, 34);        // 正面柱
+      ctx.fillRect(cx + 56, groundY - 34, 12, 34);
       ctx.fillStyle = '#404040';
-      ctx.fillRect(cx + 52, groundY - 36, 20, 6);         // 傘
+      ctx.fillRect(cx + 52, groundY - 36, 20, 6);
       ctx.fillStyle = 'rgba(255,230,120,0.55)';
       ctx.beginPath();
-      ctx.arc(cx + 62, groundY - 22, 5, 0, Math.PI * 2); // 灯り
+      ctx.arc(cx + 62, groundY - 22, 5, 0, Math.PI * 2);
       ctx.fill();
       break;
     }
     case 'garden_paradise': {
+      // 全画面：楽園トロピカル - 輝く熱帯の空
+      const paraSkyG = ctx.createLinearGradient(0, skyTop, 0, groundY);
+      paraSkyG.addColorStop(0,   '#1A6EC8');
+      paraSkyG.addColorStop(0.35,'#3890D8');
+      paraSkyG.addColorStop(0.65,'#5ABCE8');
+      paraSkyG.addColorStop(1,   '#88D8B0');
+      ctx.fillStyle = paraSkyG;
+      ctx.fillRect(0, skyTop, canvasW, skyH);
+
+      // 遠くの島シルエット
+      [
+        { x: 30,  w: 160, h: skyH * 0.32, col: 'rgba(20,100,50,0.50)' },
+        { x: 320, w: 130, h: skyH * 0.26, col: 'rgba(20,110,60,0.42)' },
+      ].forEach(isl => {
+        ctx.fillStyle = isl.col;
+        ctx.beginPath();
+        ctx.moveTo(isl.x, groundY - 8);
+        ctx.quadraticCurveTo(isl.x + isl.w * 0.25, groundY - isl.h, isl.x + isl.w * 0.55, groundY - isl.h * 0.85);
+        ctx.quadraticCurveTo(isl.x + isl.w * 0.80, groundY - isl.h * 0.35, isl.x + isl.w, groundY - 8);
+        ctx.closePath();
+        ctx.fill();
+      });
+
+      // 白い雲（ふわふわ）
+      [
+        { x: 60,  y: skyTop + skyH * 0.10, r: 28, w: 80 },
+        { x: 280, y: skyTop + skyH * 0.08, r: 22, w: 65 },
+        { x: 160, y: skyTop + skyH * 0.22, r: 18, w: 50 },
+        { x: 400, y: skyTop + skyH * 0.16, r: 20, w: 58 },
+      ].forEach(cl => {
+        ctx.fillStyle = 'rgba(255,255,255,0.82)';
+        ctx.beginPath();
+        ctx.ellipse(cl.x, cl.y, cl.w, cl.r, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(cl.x - cl.w * 0.28, cl.y + cl.r * 0.1, cl.w * 0.52, cl.r * 0.75, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(cl.x + cl.w * 0.30, cl.y + cl.r * 0.05, cl.w * 0.48, cl.r * 0.78, 0, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // 太陽
+      ctx.save();
+      ctx.shadowColor = 'rgba(255,230,100,0.7)'; ctx.shadowBlur = 28;
+      ctx.fillStyle = '#FFE050';
+      ctx.beginPath(); ctx.arc(canvasW - 60, skyTop + skyH * 0.12, 26, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,240,180,0.40)';
+      ctx.beginPath(); ctx.arc(canvasW - 60, skyTop + skyH * 0.12, 38, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+
+      // 海（地平線付近）
+      const seaG = ctx.createLinearGradient(0, groundY - skyH * 0.18, 0, groundY);
+      seaG.addColorStop(0, 'rgba(30,140,200,0.55)');
+      seaG.addColorStop(1, 'rgba(20,110,160,0.75)');
+      ctx.fillStyle = seaG;
+      ctx.fillRect(0, groundY - skyH * 0.18, canvasW, skyH * 0.18);
+      // 波
+      for (let wx = 0; wx < canvasW; wx += 38) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(wx, groundY - skyH * 0.06);
+        ctx.quadraticCurveTo(wx + 10, groundY - skyH * 0.09, wx + 20, groundY - skyH * 0.06);
+        ctx.stroke();
+      }
+      ctx.lineCap = 'butt';
+
+      // 砂浜（地面ライン）
+      const sandG = ctx.createLinearGradient(0, groundY - 12, 0, groundY + 10);
+      sandG.addColorStop(0, '#F0D888');
+      sandG.addColorStop(1, '#D8C070');
+      ctx.fillStyle = sandG;
+      ctx.fillRect(0, groundY - 10, canvasW, 20);
+
+      // ヤシの木（左）
+      [
+        { bx: 60,  h: skyH * 0.72, tw: 8 },
+        { bx: 100, h: skyH * 0.58, tw: 7 },
+      ].forEach(pt => {
+        // 湾曲した幹
+        ctx.strokeStyle = '#9A6828';
+        ctx.lineWidth = pt.tw;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(pt.bx, groundY);
+        ctx.quadraticCurveTo(pt.bx + 18, groundY - pt.h * 0.55, pt.bx + 30, groundY - pt.h);
+        ctx.stroke();
+        ctx.strokeStyle = '#7A5020';
+        ctx.lineWidth = pt.tw - 2;
+        ctx.beginPath();
+        ctx.moveTo(pt.bx + 4, groundY);
+        ctx.quadraticCurveTo(pt.bx + 20, groundY - pt.h * 0.55, pt.bx + 34, groundY - pt.h);
+        ctx.stroke();
+        // 葉
+        const leafTipX = pt.bx + 30, leafTipY = groundY - pt.h;
+        [
+          { ax: -40, ay: -12 }, { ax: -24, ay: -26 }, { ax: 2,  ay: -30 },
+          { ax: 26,  ay: -20 }, { ax: 35,  ay: -6  },
+        ].forEach(l => {
+          ctx.strokeStyle = '#2A8A2A';
+          ctx.lineWidth = 4;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(leafTipX, leafTipY);
+          ctx.quadraticCurveTo(leafTipX + l.ax * 0.5, leafTipY + l.ay * 0.5, leafTipX + l.ax, leafTipY + l.ay);
+          ctx.stroke();
+        });
+        // ヤシの実
+        ctx.fillStyle = '#A04010';
+        ctx.beginPath(); ctx.arc(leafTipX + 4, leafTipY + 8, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(leafTipX - 4, leafTipY + 10, 4, 0, Math.PI * 2); ctx.fill();
+      });
+
+      // ヤシの木（右）
+      [
+        { bx: canvasW - 55, h: skyH * 0.68, tw: 8 },
+      ].forEach(pt => {
+        ctx.strokeStyle = '#9A6828';
+        ctx.lineWidth = pt.tw;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(pt.bx, groundY);
+        ctx.quadraticCurveTo(pt.bx - 15, groundY - pt.h * 0.55, pt.bx - 25, groundY - pt.h);
+        ctx.stroke();
+        const leafTipX = pt.bx - 25, leafTipY = groundY - pt.h;
+        [
+          { ax: 38, ay: -10 }, { ax: 22, ay: -24 }, { ax: -2, ay: -28 },
+          { ax: -28, ay: -18 }, { ax: -36, ay: -5 },
+        ].forEach(l => {
+          ctx.strokeStyle = '#2A8A2A';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(leafTipX, leafTipY);
+          ctx.quadraticCurveTo(leafTipX + l.ax * 0.5, leafTipY + l.ay * 0.5, leafTipX + l.ax, leafTipY + l.ay);
+          ctx.stroke();
+        });
+        ctx.fillStyle = '#A04010';
+        ctx.beginPath(); ctx.arc(leafTipX + 4, leafTipY + 8, 5, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.lineCap = 'butt';
+
       // 地面グラデーション（明るい草）
       const paraGrad = ctx.createRadialGradient(cx, groundY - 4, 10, cx, groundY - 4, 70);
       paraGrad.addColorStop(0, 'rgba(60,160,60,0.30)');
@@ -2841,29 +3137,7 @@ function drawGarden(ctx, gardenId, cx, groundY) {
       ctx.beginPath();
       ctx.ellipse(cx, groundY - 4, 80, 16, 0, 0, Math.PI * 2);
       ctx.fill();
-      // ヤシの木（右）
-      ctx.fillStyle = '#7A5020';
-      ctx.fillRect(cx + 72 + 2, groundY - 60, 6, 62);    // 右面
-      ctx.fillStyle = '#9A6828';
-      ctx.fillRect(cx + 68, groundY - 60, 7, 62);         // 幹
-      // 葉
-      const palmLeaves = [
-        { ax: -28, ay: -18 }, { ax: -14, ay: -28 }, { ax: 6, ay: -30 },
-        { ax: 22, ay: -20 }, { ax: 28, ay: -8 },
-      ];
-      palmLeaves.forEach(l => {
-        ctx.strokeStyle = '#2A9A2A';
-        ctx.lineWidth = 3.5;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(cx + 71, groundY - 60);
-        ctx.quadraticCurveTo(
-          cx + 71 + l.ax * 0.5, groundY - 60 + l.ay * 0.5,
-          cx + 71 + l.ax, groundY - 60 + l.ay
-        );
-        ctx.stroke();
-      });
-      ctx.lineCap = 'butt';
+
       // 色とりどりの花 × 5
       const paraFlowers = [
         { x: -80, c: '#FF4488' }, { x: -58, c: '#FFAA00' }, { x: -38, c: '#FF6600' },
@@ -2895,33 +3169,104 @@ function drawGarden(ctx, gardenId, cx, groundY) {
       break;
     }
     case 'garden_yamii': {
-      // ── ヤミーの庭 ── 水晶魔法庭園・ファンタジー！
+      // ── ヤミーの庭 ── 水晶魔法庭園・ファンタジー！全画面オーロラ夜空
 
-      // オーロラ空（背景の広いグラデーション）
-      const skyAurora = ctx.createLinearGradient(cx - 130, groundY - 90, cx + 130, groundY - 10);
-      skyAurora.addColorStop(0,   'rgba(20,0,60,0.55)');
-      skyAurora.addColorStop(0.3, 'rgba(60,0,120,0.40)');
-      skyAurora.addColorStop(0.6, 'rgba(0,60,120,0.35)');
-      skyAurora.addColorStop(1,   'rgba(0,0,0,0)');
-      ctx.fillStyle = skyAurora;
-      ctx.beginPath(); ctx.ellipse(cx, groundY - 50, 135, 90, 0, 0, Math.PI * 2); ctx.fill();
+      // 夜空ベース（深い宇宙紫）
+      const yamiSkyG = ctx.createLinearGradient(0, skyTop, 0, groundY);
+      yamiSkyG.addColorStop(0,   '#04001A');
+      yamiSkyG.addColorStop(0.30,'#0A0030');
+      yamiSkyG.addColorStop(0.60,'#14004A');
+      yamiSkyG.addColorStop(1,   '#1A0038');
+      ctx.fillStyle = yamiSkyG;
+      ctx.fillRect(0, skyTop, canvasW, skyH);
 
-      // オーロラカーテン（縦の光の帯）
+      // 星（小さなドット）
+      const starPositions = [];
+      // 疑似ランダムな位置（シード固定で再現性あり）
+      for (let si = 0; si < 80; si++) {
+        const sx = ((si * 137 + si * si * 11) % canvasW);
+        const sy = skyTop + ((si * 97 + si * 13 + si * si * 7) % Math.floor(skyH * 0.85));
+        const sr = si % 5 === 0 ? 2.0 : si % 3 === 0 ? 1.4 : 0.9;
+        const sa = 0.55 + (si % 6) * 0.08;
+        starPositions.push({ x: sx, y: sy, r: sr, a: sa });
+      }
+      starPositions.forEach(s => {
+        ctx.fillStyle = `rgba(255,240,255,${s.a})`;
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+      });
+
+      // 輝く大きな星（十字型）
       [
-        { x: cx - 95, col1: 'rgba(80,255,200,0.28)', col2: 'rgba(80,255,200,0)' },
-        { x: cx - 45, col1: 'rgba(160,80,255,0.22)', col2: 'rgba(160,80,255,0)' },
-        { x: cx + 10, col1: 'rgba(80,160,255,0.25)', col2: 'rgba(80,160,255,0)' },
-        { x: cx + 65, col1: 'rgba(255,80,200,0.20)', col2: 'rgba(255,80,200,0)' },
-        { x: cx + 110, col1: 'rgba(80,255,160,0.22)', col2: 'rgba(80,255,160,0)' },
-      ].forEach(ab => {
-        const ag = ctx.createLinearGradient(ab.x - 16, groundY - 90, ab.x + 16, groundY - 90);
-        ag.addColorStop(0, ab.col2); ag.addColorStop(0.5, ab.col1); ag.addColorStop(1, ab.col2);
-        const vg = ctx.createLinearGradient(ab.x, groundY - 90, ab.x, groundY - 5);
-        vg.addColorStop(0, ab.col1); vg.addColorStop(1, ab.col2);
+        { x: 55,  y: skyTop + skyH * 0.08, col: 'rgba(200,180,255,0.95)', r: 2.8 },
+        { x: 200, y: skyTop + skyH * 0.05, col: 'rgba(180,220,255,0.90)', r: 2.2 },
+        { x: 380, y: skyTop + skyH * 0.10, col: 'rgba(255,200,255,0.92)', r: 2.5 },
+        { x: 470, y: skyTop + skyH * 0.06, col: 'rgba(200,255,220,0.88)', r: 2.0 },
+        { x: 130, y: skyTop + skyH * 0.18, col: 'rgba(255,230,200,0.90)', r: 2.3 },
+        { x: 440, y: skyTop + skyH * 0.22, col: 'rgba(220,180,255,0.88)', r: 2.0 },
+      ].forEach(st => {
         ctx.save();
-        ctx.globalAlpha = 0.85;
+        ctx.shadowColor = st.col; ctx.shadowBlur = 10;
+        ctx.fillStyle = st.col;
+        ctx.beginPath(); ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = st.col; ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.moveTo(st.x - st.r * 3.5, st.y); ctx.lineTo(st.x + st.r * 3.5, st.y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(st.x, st.y - st.r * 3.5); ctx.lineTo(st.x, st.y + st.r * 3.5); ctx.stroke();
+        ctx.restore();
+      });
+
+      // 満月（右上）
+      ctx.save();
+      ctx.shadowColor = 'rgba(200,180,255,0.80)'; ctx.shadowBlur = 30;
+      const moonG = ctx.createRadialGradient(canvasW - 65, skyTop + skyH * 0.14, 4, canvasW - 65, skyTop + skyH * 0.14, 30);
+      moonG.addColorStop(0, 'rgba(240,230,255,1.0)');
+      moonG.addColorStop(0.5, 'rgba(200,180,255,0.92)');
+      moonG.addColorStop(1, 'rgba(160,140,220,0.60)');
+      ctx.fillStyle = moonG;
+      ctx.beginPath(); ctx.arc(canvasW - 65, skyTop + skyH * 0.14, 30, 0, Math.PI * 2); ctx.fill();
+      // 月のクレーター
+      ctx.fillStyle = 'rgba(140,120,200,0.25)';
+      ctx.beginPath(); ctx.arc(canvasW - 74, skyTop + skyH * 0.11, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(canvasW - 57, skyTop + skyH * 0.17, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+
+      // 遠景の幻の城シルエット
+      ctx.fillStyle = 'rgba(30,10,70,0.70)';
+      const castleX = 18, castleBase = groundY - skyH * 0.15;
+      // 城の塔
+      [
+        { ox: 0,  w: 22, h: skyH * 0.42 }, { ox: 28, w: 16, h: skyH * 0.30 },
+        { ox: 52, w: 28, h: skyH * 0.50 }, { ox: 88, w: 16, h: skyH * 0.28 },
+        { ox: 110, w: 20, h: skyH * 0.38 },
+      ].forEach(t => {
+        ctx.fillRect(castleX + t.ox, castleBase - t.h, t.w, t.h + skyH * 0.15);
+        // 三角屋根
+        ctx.beginPath();
+        ctx.moveTo(castleX + t.ox + t.w / 2, castleBase - t.h - t.w * 0.6);
+        ctx.lineTo(castleX + t.ox, castleBase - t.h);
+        ctx.lineTo(castleX + t.ox + t.w, castleBase - t.h);
+        ctx.closePath(); ctx.fill();
+      });
+      // 城壁
+      ctx.fillRect(castleX, castleBase - skyH * 0.12, 130, skyH * 0.12);
+
+      // オーロラカーテン（全幅・縦の光の帯）
+      [
+        { x: 40,  col1: 'rgba(80,255,200,0.22)', col2: 'rgba(80,255,200,0)' },
+        { x: 110, col1: 'rgba(160,80,255,0.18)', col2: 'rgba(160,80,255,0)' },
+        { x: 190, col1: 'rgba(80,160,255,0.20)', col2: 'rgba(80,160,255,0)' },
+        { x: 280, col1: 'rgba(255,80,200,0.16)', col2: 'rgba(255,80,200,0)' },
+        { x: 360, col1: 'rgba(80,255,160,0.18)', col2: 'rgba(80,255,160,0)' },
+        { x: 440, col1: 'rgba(200,80,255,0.20)', col2: 'rgba(200,80,255,0)' },
+        { x: 500, col1: 'rgba(80,220,255,0.16)', col2: 'rgba(80,220,255,0)' },
+      ].forEach(ab => {
+        const vg = ctx.createLinearGradient(ab.x, skyTop, ab.x, groundY - skyH * 0.10);
+        vg.addColorStop(0, ab.col1); vg.addColorStop(1, ab.col2);
+        const hg = ctx.createLinearGradient(ab.x - 28, 0, ab.x + 28, 0);
+        hg.addColorStop(0, 'rgba(0,0,0,0)'); hg.addColorStop(0.5, 'rgba(255,255,255,1)'); hg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.save();
+        ctx.globalAlpha = 0.7;
         ctx.fillStyle = vg;
-        ctx.fillRect(ab.x - 16, groundY - 90, 32, 85);
+        ctx.fillRect(ab.x - 28, skyTop, 56, skyH * 0.90);
         ctx.restore();
       });
 
@@ -3079,7 +3424,109 @@ function drawGarden(ctx, gardenId, cx, groundY) {
       break;
     }
     case 'garden_void': {
-      // 暗い地面オーラ
+      // 全画面：虚空 - 絶対的な暗黒と宇宙の裂け目
+
+      // 宇宙の暗黒ベース
+      const voidSkyG = ctx.createLinearGradient(0, skyTop, 0, groundY);
+      voidSkyG.addColorStop(0,   '#000000');
+      voidSkyG.addColorStop(0.30,'#020008');
+      voidSkyG.addColorStop(0.60,'#060012');
+      voidSkyG.addColorStop(1,   '#0A0020');
+      ctx.fillStyle = voidSkyG;
+      ctx.fillRect(0, skyTop, canvasW, skyH);
+
+      // 星雲（nebula）- 薄紫の霧
+      [
+        { x: 130, y: skyTop + skyH * 0.22, rx: 120, ry: 55, col: 'rgba(80,0,140,0.22)' },
+        { x: 360, y: skyTop + skyH * 0.38, rx: 100, ry: 45, col: 'rgba(40,0,100,0.18)' },
+        { x: 240, y: skyTop + skyH * 0.55, rx: 140, ry: 40, col: 'rgba(60,0,120,0.20)' },
+      ].forEach(nb => {
+        const ng = ctx.createRadialGradient(nb.x, nb.y, 5, nb.x, nb.y, Math.max(nb.rx, nb.ry));
+        ng.addColorStop(0, nb.col);
+        ng.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = ng;
+        ctx.beginPath(); ctx.ellipse(nb.x, nb.y, nb.rx, nb.ry, 0, 0, Math.PI * 2); ctx.fill();
+      });
+
+      // 細かい星
+      for (let vi = 0; vi < 120; vi++) {
+        const vx = (vi * 173 + vi * vi * 7) % canvasW;
+        const vy = skyTop + ((vi * 113 + vi * vi * 11) % Math.floor(skyH * 0.90));
+        const vr = vi % 7 === 0 ? 1.8 : vi % 4 === 0 ? 1.2 : 0.7;
+        const va = 0.25 + (vi % 8) * 0.08;
+        ctx.fillStyle = vi % 5 === 0
+          ? `rgba(180,140,255,${va})`
+          : vi % 3 === 0
+            ? `rgba(140,180,255,${va})`
+            : `rgba(200,180,255,${va})`;
+        ctx.beginPath(); ctx.arc(vx, vy, vr, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // 遠くの崩壊した城/廃墟シルエット（右側）
+      ctx.fillStyle = 'rgba(15,5,35,0.90)';
+      const ruinX = canvasW - 160, ruinBase = groundY;
+      [
+        { ox: 0,  w: 18, h: skyH * 0.38 },
+        { ox: 22, w: 14, h: skyH * 0.22 },  // 崩れた低い塔
+        { ox: 60, w: 24, h: skyH * 0.46 },
+        { ox: 90, w: 12, h: skyH * 0.18 },
+        { ox: 110, w: 20, h: skyH * 0.30 },
+      ].forEach(t => {
+        ctx.fillRect(ruinX + t.ox, ruinBase - t.h, t.w, t.h);
+        // 崩れた先端（ランダムなギザギザ）
+        ctx.beginPath();
+        ctx.moveTo(ruinX + t.ox, ruinBase - t.h);
+        const steps = 4;
+        for (let si = 0; si <= steps; si++) {
+          const nx = ruinX + t.ox + (si / steps) * t.w;
+          const ny = ruinBase - t.h - ((si * 7 + t.ox) % 12);
+          si === 0 ? ctx.moveTo(nx, ny) : ctx.lineTo(nx, ny);
+        }
+        ctx.lineTo(ruinX + t.ox + t.w, ruinBase - t.h);
+        ctx.closePath(); ctx.fill();
+      });
+      ctx.fillRect(ruinX, ruinBase - skyH * 0.10, 130, skyH * 0.10);
+
+      // 空間の裂け目（中央上方）
+      const riftMainG = ctx.createRadialGradient(cx, skyTop + skyH * 0.38, 5, cx, skyTop + skyH * 0.38, 70);
+      riftMainG.addColorStop(0,   'rgba(200,100,255,0.80)');
+      riftMainG.addColorStop(0.30,'rgba(120,40,200,0.50)');
+      riftMainG.addColorStop(0.65,'rgba(60,0,120,0.25)');
+      riftMainG.addColorStop(1,   'rgba(0,0,0,0)');
+      ctx.save();
+      ctx.shadowColor = 'rgba(180,80,255,0.80)'; ctx.shadowBlur = 25;
+      ctx.fillStyle = riftMainG;
+      ctx.beginPath(); ctx.ellipse(cx, skyTop + skyH * 0.38, 70, 28, 0, 0, Math.PI * 2); ctx.fill();
+      // 裂け目の中心線
+      ctx.strokeStyle = 'rgba(230,180,255,0.90)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cx - 45, skyTop + skyH * 0.38); ctx.lineTo(cx + 45, skyTop + skyH * 0.38); ctx.stroke();
+      ctx.restore();
+
+      // 浮遊する暗黒の欠片
+      [
+        { x: cx - 80, y: skyTop + skyH * 0.60, size: 12, a: 0.7 },
+        { x: cx - 40, y: skyTop + skyH * 0.48, size: 8,  a: 0.6 },
+        { x: cx + 50, y: skyTop + skyH * 0.55, size: 10, a: 0.65 },
+        { x: cx + 88, y: skyTop + skyH * 0.44, size: 7,  a: 0.58 },
+        { x: 40,      y: skyTop + skyH * 0.52, size: 9,  a: 0.55 },
+      ].forEach(fr => {
+        ctx.save();
+        ctx.shadowColor = 'rgba(140,60,255,0.70)'; ctx.shadowBlur = 12;
+        ctx.fillStyle = `rgba(60,20,100,${fr.a})`;
+        ctx.beginPath();
+        ctx.moveTo(fr.x, fr.y - fr.size);
+        ctx.lineTo(fr.x + fr.size * 0.55, fr.y - fr.size * 0.2);
+        ctx.lineTo(fr.x + fr.size * 0.45, fr.y + fr.size * 0.55);
+        ctx.lineTo(fr.x - fr.size * 0.35, fr.y + fr.size * 0.45);
+        ctx.lineTo(fr.x - fr.size * 0.50, fr.y - fr.size * 0.25);
+        ctx.closePath(); ctx.fill();
+        // 光る輪郭
+        ctx.strokeStyle = `rgba(160,80,255,${fr.a * 0.8})`; ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // 地面の虚空オーラ
       const voidGrad = ctx.createRadialGradient(cx, groundY - 4, 5, cx, groundY - 4, 90);
       voidGrad.addColorStop(0, 'rgba(100,0,200,0.45)');
       voidGrad.addColorStop(0.5, 'rgba(40,0,80,0.25)');
@@ -3251,6 +3698,9 @@ function generateFarmImage(farm) {
   grassHL.addColorStop(1, 'rgba(80,160,20,0)');
   ctx.fillStyle = grassHL;
   ctx.fillRect(0, groundY, CANVAS_W, 6);
+
+  // ── 庭（全画面）──
+  drawGarden(ctx, farm.house?.garden, CANVAS_W / 2, groundY, HEADER_H, HOUSE_H, CANVAS_W);
 
   drawHouse(ctx, farm.house, HEADER_H + 8);
 

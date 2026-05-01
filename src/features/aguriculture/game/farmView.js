@@ -258,9 +258,34 @@ async function harvestAll(userId) {
 // ─── 室内ビュー ──────────────────────────────────────────────────────────────
 
 // farm オブジェクトの初期化ヘルパー
+// 部屋内の配置スポット名（farmCanvas.js の positions[] に対応）
+const ROOM_POSITIONS = [
+  '奥・左',   // 0  fx:0.13 fy:0.22
+  '奥・右',   // 1  fx:0.87 fy:0.22
+  '奥・中央', // 2  fx:0.50 fy:0.16
+  '中間・左', // 3  fx:0.27 fy:0.45
+  '中間・右', // 4  fx:0.73 fy:0.45
+  '中間・中央', // 5 fx:0.50 fy:0.40
+  '手前・左', // 6  fx:0.16 fy:0.67
+  '手前・右', // 7  fx:0.84 fy:0.67
+  '手前・中央', // 8 fx:0.50 fy:0.58
+  '最前・左', // 9  fx:0.34 fy:0.85
+  '最前・右', // 10 fx:0.66 fy:0.85
+];
+
+// 配置中の家具が使っていない最初のスロット番号を返す
+function getNextFreePos(placed, furniturePositions) {
+  const used = new Set(placed.map(id => furniturePositions[id]).filter(v => v !== undefined));
+  for (let i = 0; i < ROOM_POSITIONS.length; i++) {
+    if (!used.has(i)) return i;
+  }
+  return 0;
+}
+
 function initFarmHouse(farm) {
-  if (!farm.house)           farm.house = { ...DEFAULT_HOUSE };
-  if (!farm.house.furniture) farm.house.furniture = [];
+  if (!farm.house)                     farm.house = { ...DEFAULT_HOUSE };
+  if (!farm.house.furniture)           farm.house.furniture = [];
+  if (!farm.house.furniturePositions)  farm.house.furniturePositions = {};
   if (!farm.ownedHouseItems) farm.ownedHouseItems = Object.keys(HOUSE_ITEMS).filter(k => HOUSE_ITEMS[k].price === 0);
 }
 
@@ -416,6 +441,16 @@ function buildInteriorFurnButtons(farm, page = 0) {
     ));
   }
 
+  // 場所を変えるボタン（設置中の家具がある場合のみ）
+  if (placed.length > 0) {
+    rows.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('farm_room_furn_move_menu')
+        .setLabel('📍 場所を変える')
+        .setStyle(ButtonStyle.Primary)
+    ));
+  }
+
   const navComps = [];
   if (page > 0) {
     navComps.push(new ButtonBuilder()
@@ -429,7 +464,7 @@ function buildInteriorFurnButtons(farm, page = 0) {
       .setLabel('次のページ →')
       .setStyle(ButtonStyle.Secondary));
   }
-  // 设置中の机・棚の「上を整理」ボタン
+  // 設置中の机・棚の「上を整理」ボタン
   const containers = placed.filter(id => HOUSE_ITEMS[id]?.topSlots);
   containers.slice(0, 2).forEach(id => {
     navComps.push(new ButtonBuilder()
@@ -508,8 +543,161 @@ function buildInteriorTopSetupButtons(farm, containerId) {
   return rows.slice(0, 5);
 }
 
+// ─── 家具・場所変更 UI ────────────────────────────────────────────────────────
+
+// 「どの家具を動かすか」選択画面
+function buildInteriorMoveMenuEmbed(farm) {
+  const placed     = farm.house?.furniture ?? [];
+  const furniturePositions = farm.house?.furniturePositions ?? {};
+
+  const lines = placed.map(id => {
+    const item   = HOUSE_ITEMS[id];
+    if (!item) return null;
+    const posIdx = furniturePositions[id] ?? null;
+    const posName = posIdx !== null ? ROOM_POSITIONS[posIdx] ?? `位置${posIdx}` : '（自動）';
+    return `${item.emoji} **${item.name}** — 📍 ${posName}`;
+  }).filter(Boolean);
+
+  return new EmbedBuilder()
+    .setTitle('📍 家具の場所を変える')
+    .setDescription(
+      `移動させたい家具を選んでください。\n\n${lines.join('\n') || '（設置中の家具なし）'}`
+    )
+    .setColor(0x5A8FC0)
+    .setFooter({ text: '場所を変えても既に置いてある小物はそのままです' });
+}
+
+function buildInteriorMoveMenuButtons(farm) {
+  const placed = farm.house?.furniture ?? [];
+  const rows   = [];
+
+  for (let i = 0; i < placed.length; i += 4) {
+    rows.push(new ActionRowBuilder().addComponents(
+      placed.slice(i, i + 4).map(id => {
+        const item = HOUSE_ITEMS[id];
+        return new ButtonBuilder()
+          .setCustomId(`farm_room_furn_move_${id}`)
+          .setLabel(`${item?.emoji ?? ''} ${item?.name ?? id}`)
+          .setStyle(ButtonStyle.Primary);
+      })
+    ));
+  }
+
+  rows.push(new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('farm_room_furn_manage')
+      .setLabel('← 家具リストに戻る')
+      .setStyle(ButtonStyle.Secondary)
+  ));
+  return rows.slice(0, 5);
+}
+
+// 「どこに置くか」位置選択画面（3列グリッド）
+function buildInteriorPosSelectEmbed(farm, itemId) {
+  const item   = HOUSE_ITEMS[itemId];
+  const placed = farm.house?.furniture ?? [];
+  const furniturePositions = farm.house?.furniturePositions ?? {};
+
+  // 各スロットに置かれている家具を逆引き
+  const posOccupied = {};   // posIdx → itemId
+  placed.forEach(id => {
+    const p = furniturePositions[id];
+    if (p !== undefined) posOccupied[p] = id;
+  });
+
+  const current = furniturePositions[itemId] ?? null;
+  const lines   = ROOM_POSITIONS.map((name, i) => {
+    const occ = posOccupied[i];
+    if (i === current) return `▶ **${name}** ← 現在の場所`;
+    if (occ) {
+      const occItem = HOUSE_ITEMS[occ];
+      return `　${name} （${occItem?.emoji ?? ''} ${occItem?.name ?? occ} がいる → 入れ替わります）`;
+    }
+    return `　${name}`;
+  });
+
+  return new EmbedBuilder()
+    .setTitle(`📍 ${item?.emoji ?? ''} ${item?.name ?? itemId} の場所を選ぶ`)
+    .setDescription(lines.join('\n'))
+    .setColor(0x5A8FC0)
+    .setFooter({ text: '別の家具が居る場所を選ぶと位置が入れ替わります' });
+}
+
+function buildInteriorPosSelectButtons(farm, itemId) {
+  const placed = farm.house?.furniture ?? [];
+  const furniturePositions = farm.house?.furniturePositions ?? {};
+
+  const posOccupied = {};
+  placed.forEach(id => {
+    const p = furniturePositions[id];
+    if (p !== undefined) posOccupied[p] = id;
+  });
+
+  const current = furniturePositions[itemId] ?? null;
+
+  // 3列グリッド配置（positions 配列順）
+  // Row0: [0:奥左] [2:奥中] [1:奥右]
+  // Row1: [3:中左] [5:中中] [4:中右]
+  // Row2: [6:手左] [8:手中] [7:手右]
+  // Row3: [9:最左] [---] [10:最右]
+  const grid = [
+    [0, 2, 1],
+    [3, 5, 4],
+    [6, 8, 7],
+    [9, null, 10],
+  ];
+
+  const rows = [];
+  for (const rowIdxs of grid) {
+    const comps = rowIdxs.map(posIdx => {
+      if (posIdx === null) {
+        return new ButtonBuilder()
+          .setCustomId('farm_room_furn_pos_noop')
+          .setLabel('　')
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(true);
+      }
+      const name    = ROOM_POSITIONS[posIdx];
+      const isCurrent  = posIdx === current;
+      const occ     = posOccupied[posIdx];
+      const occItem = occ ? HOUSE_ITEMS[occ] : null;
+      const label   = occItem ? `${occItem.emoji} ${name}` : name;
+      return new ButtonBuilder()
+        .setCustomId(`farm_room_furn_setpos_${itemId}_${posIdx}`)
+        .setLabel(label.slice(0, 80))
+        .setStyle(isCurrent ? ButtonStyle.Success : occ ? ButtonStyle.Danger : ButtonStyle.Secondary)
+        .setDisabled(isCurrent);
+    });
+    rows.push(new ActionRowBuilder().addComponents(comps));
+  }
+
+  rows.push(new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('farm_room_furn_move_menu')
+      .setLabel('← 家具一覧に戻る')
+      .setStyle(ButtonStyle.Secondary)
+  ));
+  return rows.slice(0, 5);
+}
+
 async function handleInteriorFurnButton(interaction) {
   const { customId, user } = interaction;
+
+  // ── エラーラッパー ─────────────────────────────────────────────────────────
+  const safeUpdate = async (payload) => {
+    try { await interaction.update(payload); } catch { /* already ack'd */ }
+  };
+  const safeReply = async (opts) => {
+    try {
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({ ...opts, ephemeral: true });
+      } else {
+        await interaction.reply({ ...opts, ephemeral: true });
+      }
+    } catch { /* ignore */ }
+  };
+
+  try {
 
   // 家具管理メニューを開く
   if (customId === 'farm_room_furn_manage') {
@@ -660,6 +848,78 @@ async function handleInteriorFurnButton(interaction) {
       ephemeral: true,
     });
   }
+
+  // ── 場所変更メニュー（どの家具を動かすか）──
+  if (customId === 'farm_room_furn_move_menu') {
+    const farm = await loadFarm(user.id);
+    initFarmHouse(farm);
+    return interaction.update({
+      embeds: [buildInteriorMoveMenuEmbed(farm)],
+      components: buildInteriorMoveMenuButtons(farm),
+      files: [],
+    });
+  }
+
+  // ── 家具選択 → 位置グリッドへ ──
+  if (customId.startsWith('farm_room_furn_move_')) {
+    const itemId = customId.replace('farm_room_furn_move_', '');
+    if (!HOUSE_ITEMS[itemId]) return safeReply({ content: '❌ 不明な家具です。' });
+    const farm = await loadFarm(user.id);
+    initFarmHouse(farm);
+    return interaction.update({
+      embeds: [buildInteriorPosSelectEmbed(farm, itemId)],
+      components: buildInteriorPosSelectButtons(farm, itemId),
+      files: [],
+    });
+  }
+
+  // ── 位置確定 → 保存 → 家具一覧に戻る ──
+  if (customId.startsWith('farm_room_furn_setpos_')) {
+    const rest   = customId.replace('farm_room_furn_setpos_', '');
+    // rest = "ITEMID_N" — ITEMID に _ が含まれることがあるので末尾から分割
+    const lastUs = rest.lastIndexOf('_');
+    const itemId = rest.substring(0, lastUs);
+    const posIdx = parseInt(rest.substring(lastUs + 1), 10);
+
+    if (!HOUSE_ITEMS[itemId] || isNaN(posIdx)) return safeReply({ content: '❌ 不明な操作です。' });
+
+    const farm = await loadFarm(user.id);
+    initFarmHouse(farm);
+    const fp = farm.house.furniturePositions;
+
+    // 同じ位置に別の家具があれば入れ替え（スワップ）
+    const currentOwner = Object.entries(fp).find(([id, v]) => v === posIdx && id !== itemId)?.[0];
+    if (currentOwner) {
+      // currentOwner に itemId の元の位置を渡す（なければ空きスロットを割り当て）
+      const myOldPos = fp[itemId];
+      if (myOldPos !== undefined) {
+        fp[currentOwner] = myOldPos;
+      } else {
+        fp[currentOwner] = getNextFreePos(
+          farm.house.furniture.filter(id => id !== itemId && id !== currentOwner),
+          fp
+        );
+      }
+    }
+    fp[itemId] = posIdx;
+    await saveFarm(user.id, farm);
+
+    const item = HOUSE_ITEMS[itemId];
+    await safeUpdate({
+      embeds: [buildInteriorMoveMenuEmbed(farm)],
+      components: buildInteriorMoveMenuButtons(farm),
+      files: [],
+      content: null,
+    });
+    await interaction.followUp({
+      content: `✅ ${item.emoji} **${item.name}** を **${ROOM_POSITIONS[posIdx]}** に移動しました！`,
+      ephemeral: true,
+    }).catch(() => {});
+    return;
+  }
+
+  // ── どのハンドラにもマッチしなかった場合のフォールバック ──
+  await safeReply({ content: '❌ 不明な操作です。' });
 }
 
 // members: [{ id, displayName }]  vcName: VCの名前

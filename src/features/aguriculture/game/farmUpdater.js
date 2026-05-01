@@ -14,6 +14,8 @@ async function refreshActiveFarms(client) {
   for (const userId of userIds) {
     const farm = await loadFarm(userId);
     if (!farm.activeMessage) continue;
+    // 入室中は上書きしない
+    if (farm.activeMessage.inRoom) continue;
 
     // 育成中または収穫可能なスロットがあるときだけ更新
     const hasActive = farm.slots.some(s => getSlotStatus(s) !== 'empty');

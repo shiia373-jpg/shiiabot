@@ -49,8 +49,17 @@ async function saveFarm(userId, farm) {
 // 農場メッセージの参照を保存（自動更新用）
 async function setFarmMessage(userId, messageId, channelId) {
   const farm = await loadFarm(userId);
-  farm.activeMessage = { messageId, channelId };
+  farm.activeMessage = { messageId, channelId, inRoom: false };
   await saveFarm(userId, farm);
+}
+
+// 入室／退室フラグの切り替え（自動更新をスキップするため）
+async function setRoomView(userId, inRoom) {
+  const farm = await loadFarm(userId);
+  if (farm.activeMessage) {
+    farm.activeMessage.inRoom = inRoom;
+    await saveFarm(userId, farm);
+  }
 }
 
 // 全ユーザーIDを取得（自動更新用）
@@ -62,4 +71,4 @@ async function getAllFarmUserIds() {
     .map(f => f.replace('.json', ''));
 }
 
-module.exports = { loadFarm, saveFarm, setFarmMessage, getAllFarmUserIds };
+module.exports = { loadFarm, saveFarm, setFarmMessage, setRoomView, getAllFarmUserIds };

@@ -73,6 +73,414 @@ function drawProgressBar(ctx, x, y, w, h, progress) {
   ctx.fillText(`${Math.floor(progress * 100)}%`, x + w / 2, y + h - 1);
 }
 
+// ── 作物アイコン描画 ─────────────────────────────────────────────────────────
+// cropId: CROPS のキー / cx,cy: 中心座標 / r: 半径
+// shadowColor/shadowBlur: グロー設定（save/restore 内で適用）
+function drawCropIcon(ctx, cropId, cx, cy, r, shadowColor = null, shadowBlur = 0) {
+  ctx.save();
+  ctx.lineCap  = 'round';
+  ctx.lineJoin = 'round';
+  if (shadowColor) { ctx.shadowColor = shadowColor; ctx.shadowBlur = shadowBlur; }
+
+  // ── 小麦 ─────────────────────────────────────────────────────────────────
+  if (cropId === 'wheat') {
+    for (let s = 0; s < 3; s++) {
+      const ox = (s - 1) * r * 0.30, tilt = (s - 1) * 0.20;
+      const tipX = cx + ox + tilt * r, tipY = cy - r * 0.80;
+      ctx.strokeStyle = '#D4A830'; ctx.lineWidth = Math.max(1.5, r * 0.09);
+      ctx.beginPath();
+      ctx.moveTo(cx + ox, cy + r * 0.90);
+      ctx.quadraticCurveTo(cx + ox, cy + r * 0.10, tipX, tipY);
+      ctx.stroke();
+      for (let k = 0; k < 4; k++) {
+        const py = tipY + k * r * 0.20;
+        for (const side of [-1, 1]) {
+          ctx.fillStyle = k < 2 ? '#F0D050' : '#C89020';
+          ctx.beginPath();
+          ctx.ellipse(tipX + side * r * 0.11, py, r * 0.08, r * 0.13, side * 0.25, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.strokeStyle = '#F0D878'; ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(tipX, tipY); ctx.lineTo(tipX, tipY - r * 0.38); ctx.stroke();
+    }
+  }
+
+  // ── にんじん ───────────────────────────────────────────────────────────────
+  else if (cropId === 'carrot') {
+    for (const [lox, loy, ctrl] of [[-0.30, -0.92, -0.50], [0, -1.02, 0], [0.30, -0.92, 0.50]]) {
+      ctx.strokeStyle = lox === 0 ? '#3CC840' : '#28A030';
+      ctx.lineWidth = r * 0.09;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - r * 0.60);
+      ctx.quadraticCurveTo(cx + ctrl * r * 0.5, cy + loy * r * 0.4 + r * 0.2, cx + lox * r, cy + loy * r);
+      ctx.stroke();
+    }
+    const cg = ctx.createLinearGradient(cx - r * 0.45, cy - r * 0.5, cx + r * 0.3, cy + r * 0.8);
+    cg.addColorStop(0, '#FF8A45'); cg.addColorStop(1, '#D04010');
+    ctx.fillStyle = cg;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + r * 0.90);
+    ctx.bezierCurveTo(cx - r * 0.42, cy + r * 0.30, cx - r * 0.40, cy - r * 0.45, cx - r * 0.05, cy - r * 0.60);
+    ctx.lineTo(cx + r * 0.05, cy - r * 0.60);
+    ctx.bezierCurveTo(cx + r * 0.40, cy - r * 0.45, cx + r * 0.42, cy + r * 0.30, cx, cy + r * 0.90);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(200,60,0,0.30)'; ctx.lineWidth = 0.7;
+    for (const ry of [-0.08, 0.22, 0.52]) {
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.28, cy + ry * r); ctx.lineTo(cx + r * 0.28, cy + ry * r); ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(255,220,100,0.28)';
+    ctx.beginPath();
+    ctx.ellipse(cx - r * 0.10, cy + r * 0.05, r * 0.07, r * 0.35, -0.2, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ── じゃがいも ──────────────────────────────────────────────────────────────
+  else if (cropId === 'potato') {
+    const pg = ctx.createRadialGradient(cx - r * 0.18, cy - r * 0.15, r * 0.05, cx, cy, r * 0.82);
+    pg.addColorStop(0, '#DBAF78'); pg.addColorStop(1, '#7A5230');
+    ctx.fillStyle = pg;
+    ctx.beginPath();
+    ctx.moveTo(cx - r * 0.72, cy + r * 0.12);
+    ctx.bezierCurveTo(cx - r * 0.75, cy - r * 0.42, cx - r * 0.35, cy - r * 0.65, cx + r * 0.05, cy - r * 0.62);
+    ctx.bezierCurveTo(cx + r * 0.55, cy - r * 0.58, cx + r * 0.78, cy - r * 0.18, cx + r * 0.72, cy + r * 0.30);
+    ctx.bezierCurveTo(cx + r * 0.65, cy + r * 0.65, cx - r * 0.30, cy + r * 0.72, cx - r * 0.55, cy + r * 0.55);
+    ctx.bezierCurveTo(cx - r * 0.75, cy + r * 0.42, cx - r * 0.70, cy + r * 0.30, cx - r * 0.72, cy + r * 0.12);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#4A2A10';
+    for (const [ox, oy] of [[-0.22, -0.08], [0.25, 0.18], [-0.05, 0.32], [0.38, -0.22]]) {
+      ctx.beginPath();
+      ctx.ellipse(cx + ox * r, cy + oy * r, r * 0.055, r * 0.045, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#5A6030'; ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(cx + ox * r, cy + oy * r - r * 0.04);
+      ctx.lineTo(cx + ox * r + r * 0.04, cy + oy * r - r * 0.12); ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.beginPath();
+    ctx.ellipse(cx - r * 0.22, cy - r * 0.25, r * 0.24, r * 0.13, -0.4, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ── トマト ─────────────────────────────────────────────────────────────────
+  else if (cropId === 'tomato') {
+    const tg = ctx.createRadialGradient(cx - r * 0.22, cy - r * 0.20, r * 0.05, cx, cy + r * 0.08, r * 0.78);
+    tg.addColorStop(0, '#FF6050'); tg.addColorStop(0.7, '#E82020'); tg.addColorStop(1, '#A01010');
+    ctx.fillStyle = tg;
+    ctx.beginPath(); ctx.arc(cx, cy + r * 0.05, r * 0.72, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#30A040';
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 - Math.PI * 0.5;
+      ctx.save(); ctx.translate(cx, cy - r * 0.62); ctx.rotate(a);
+      ctx.beginPath();
+      ctx.ellipse(0, -r * 0.20, r * 0.08, r * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    ctx.strokeStyle = '#2A8830'; ctx.lineWidth = r * 0.10;
+    ctx.beginPath(); ctx.moveTo(cx, cy - r * 0.62); ctx.lineTo(cx + r * 0.12, cy - r * 0.92); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.beginPath();
+    ctx.ellipse(cx - r * 0.22, cy - r * 0.18, r * 0.20, r * 0.12, -0.5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ── キャベツ ───────────────────────────────────────────────────────────────
+  else if (cropId === 'cabbage') {
+    const leafColors = ['#5AB840', '#3A9828', '#2A8020', '#3A9828', '#5AB840'];
+    const angles = [-0.8, -0.3, 0.2, 0.7, 1.2].map(a => a * Math.PI);
+    for (let i = 4; i >= 0; i--) {
+      ctx.fillStyle = leafColors[i];
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(angles[i]);
+      ctx.beginPath();
+      ctx.ellipse(0, -r * (0.15 + i * 0.08), r * (0.55 + i * 0.08), r * (0.38 + i * 0.05), 0, -Math.PI * 0.6, Math.PI * 0.6);
+      ctx.lineTo(0, 0); ctx.closePath(); ctx.fill(); ctx.restore();
+    }
+    ctx.fillStyle = '#D8EEC8';
+    ctx.beginPath(); ctx.arc(cx, cy, r * 0.30, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#B8D8A0';
+    ctx.beginPath(); ctx.arc(cx, cy, r * 0.16, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ── とうもろこし ────────────────────────────────────────────────────────────
+  else if (cropId === 'corn') {
+    ctx.fillStyle = '#3A8820';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + r * 0.90);
+      ctx.bezierCurveTo(cx + side * r * 0.55, cy + r * 0.30, cx + side * r * 0.65, cy - r * 0.20, cx + side * r * 0.18, cy - r * 0.45);
+      ctx.bezierCurveTo(cx + side * r * 0.28, cy - r * 0.10, cx + side * r * 0.22, cy + r * 0.50, cx, cy + r * 0.90);
+      ctx.fill();
+    }
+    const cg = ctx.createLinearGradient(cx - r * 0.38, cy - r * 0.85, cx + r * 0.38, cy + r * 0.45);
+    cg.addColorStop(0, '#F8E040'); cg.addColorStop(1, '#C89010');
+    ctx.fillStyle = cg;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - r * 0.22, r * 0.30, r * 0.62, 0, 0, Math.PI * 2); ctx.fill();
+    for (let ri = 0; ri < 6; ri++) {
+      for (let ci = 0; ci < 4; ci++) {
+        const kx = cx + (ci - 1.5) * r * 0.13, ky = cy - r * 0.72 + ri * r * 0.22;
+        const dx = (kx - cx) / (r * 0.28), dy = (ky - (cy - r * 0.22)) / (r * 0.60);
+        if (dx * dx + dy * dy > 0.82) continue;
+        ctx.fillStyle = ri % 2 === 0 ? '#F8D830' : '#D89810';
+        ctx.beginPath();
+        ctx.ellipse(kx, ky, r * 0.055, r * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    ctx.strokeStyle = '#C89840'; ctx.lineWidth = 0.7;
+    for (let h = -2; h <= 2; h++) {
+      ctx.beginPath();
+      ctx.moveTo(cx + h * r * 0.07, cy - r * 0.82);
+      ctx.lineTo(cx + h * r * 0.07 + h * r * 0.04, cy - r * 1.02); ctx.stroke();
+    }
+  }
+
+  // ── ナス ───────────────────────────────────────────────────────────────────
+  else if (cropId === 'eggplant') {
+    const eg = ctx.createRadialGradient(cx - r * 0.20, cy - r * 0.10, r * 0.08, cx + r * 0.10, cy + r * 0.30, r * 0.88);
+    eg.addColorStop(0, '#9040C0'); eg.addColorStop(1, '#3A006A');
+    ctx.fillStyle = eg;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - r * 0.60);
+    ctx.bezierCurveTo(cx + r * 0.55, cy - r * 0.58, cx + r * 0.72, cy + r * 0.15, cx + r * 0.65, cy + r * 0.55);
+    ctx.bezierCurveTo(cx + r * 0.55, cy + r * 0.90, cx - r * 0.55, cy + r * 0.90, cx - r * 0.65, cy + r * 0.55);
+    ctx.bezierCurveTo(cx - r * 0.72, cy + r * 0.15, cx - r * 0.55, cy - r * 0.58, cx, cy - r * 0.60);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#2A8030';
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4 - 0.125) * Math.PI * 2;
+      ctx.save(); ctx.translate(cx, cy - r * 0.60); ctx.rotate(a);
+      ctx.beginPath();
+      ctx.ellipse(0, -r * 0.18, r * 0.07, r * 0.20, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    }
+    ctx.strokeStyle = '#3A9040'; ctx.lineWidth = r * 0.09;
+    ctx.beginPath(); ctx.moveTo(cx, cy - r * 0.60); ctx.lineTo(cx + r * 0.08, cy - r * 0.95); ctx.stroke();
+    ctx.fillStyle = 'rgba(180,80,255,0.30)';
+    ctx.beginPath();
+    ctx.ellipse(cx - r * 0.20, cy - r * 0.05, r * 0.15, r * 0.38, -0.25, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ── ピーマン ───────────────────────────────────────────────────────────────
+  else if (cropId === 'pepper') {
+    const pBase = cy + r * 0.45;
+    const pg = ctx.createRadialGradient(cx - r * 0.18, cy, r * 0.05, cx, cy + r * 0.10, r * 0.80);
+    pg.addColorStop(0, '#60C040'); pg.addColorStop(1, '#1A6010');
+    ctx.fillStyle = pg;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - r * 0.58);
+    ctx.bezierCurveTo(cx - r * 0.68, cy - r * 0.55, cx - r * 0.75, cy + r * 0.40, cx - r * 0.50, pBase);
+    ctx.bezierCurveTo(cx - r * 0.20, pBase + r * 0.12, cx - r * 0.05, pBase + r * 0.05, cx, pBase);
+    ctx.bezierCurveTo(cx + r * 0.05, pBase + r * 0.05, cx + r * 0.20, pBase + r * 0.12, cx + r * 0.50, pBase);
+    ctx.bezierCurveTo(cx + r * 0.75, cy + r * 0.40, cx + r * 0.68, cy - r * 0.55, cx, cy - r * 0.58);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(10,60,10,0.40)'; ctx.lineWidth = 1.0;
+    ctx.beginPath(); ctx.moveTo(cx, cy - r * 0.52); ctx.lineTo(cx, pBase); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx - r * 0.32, cy - r * 0.28);
+    ctx.bezierCurveTo(cx - r * 0.40, cy + r * 0.10, cx - r * 0.38, cy + r * 0.36, cx - r * 0.24, pBase + r * 0.04);
+    ctx.moveTo(cx + r * 0.32, cy - r * 0.28);
+    ctx.bezierCurveTo(cx + r * 0.40, cy + r * 0.10, cx + r * 0.38, cy + r * 0.36, cx + r * 0.24, pBase + r * 0.04);
+    ctx.stroke();
+    ctx.fillStyle = '#2A7020';
+    ctx.beginPath(); ctx.arc(cx, cy - r * 0.58, r * 0.12, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#2A8030'; ctx.lineWidth = r * 0.10;
+    ctx.beginPath(); ctx.moveTo(cx, cy - r * 0.58); ctx.lineTo(cx + r * 0.08, cy - r * 0.92); ctx.stroke();
+    ctx.fillStyle = 'rgba(200,255,150,0.28)';
+    ctx.beginPath();
+    ctx.ellipse(cx - r * 0.18, cy - r * 0.18, r * 0.14, r * 0.28, -0.2, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ── かぼちゃ ───────────────────────────────────────────────────────────────
+  else if (cropId === 'pumpkin') {
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 - Math.PI * 0.5;
+      const lx = cx + Math.cos(a) * r * 0.28, ly = cy + r * 0.08 + Math.sin(a) * r * 0.30;
+      const gr = ctx.createRadialGradient(lx - r * 0.05, ly - r * 0.08, 0, lx, ly, r * 0.42);
+      gr.addColorStop(0, '#FFA020'); gr.addColorStop(1, '#C06000');
+      ctx.fillStyle = gr;
+      ctx.beginPath();
+      ctx.ellipse(lx, ly, r * 0.36, r * 0.52, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    const cg2 = ctx.createRadialGradient(cx - r * 0.1, cy - r * 0.1, r * 0.05, cx, cy + r * 0.08, r * 0.25);
+    cg2.addColorStop(0, '#FFB030'); cg2.addColorStop(1, '#C06008');
+    ctx.fillStyle = cg2;
+    ctx.beginPath(); ctx.arc(cx, cy + r * 0.08, r * 0.25, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#3A7010'; ctx.lineWidth = r * 0.10;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - r * 0.60);
+    ctx.bezierCurveTo(cx + r * 0.15, cy - r * 0.72, cx + r * 0.08, cy - r * 0.85, cx, cy - r * 0.90);
+    ctx.stroke();
+    ctx.fillStyle = '#408020';
+    ctx.beginPath();
+    ctx.ellipse(cx + r * 0.22, cy - r * 0.75, r * 0.16, r * 0.08, 0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,220,100,0.22)';
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 - Math.PI * 0.5;
+      const lx = cx + Math.cos(a) * r * 0.28, ly = cy + r * 0.08 + Math.sin(a) * r * 0.30;
+      ctx.beginPath();
+      ctx.ellipse(lx - r * 0.08, ly - r * 0.12, r * 0.10, r * 0.18, -0.4, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // ── メロン ─────────────────────────────────────────────────────────────────
+  else if (cropId === 'melon') {
+    const mg = ctx.createRadialGradient(cx - r * 0.15, cy - r * 0.15, r * 0.05, cx, cy, r * 0.82);
+    mg.addColorStop(0, '#C8E878'); mg.addColorStop(0.7, '#88CC30'); mg.addColorStop(1, '#508818');
+    ctx.fillStyle = mg;
+    ctx.beginPath(); ctx.ellipse(cx, cy, r * 0.80, r * 0.72, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,200,0.35)'; ctx.lineWidth = 0.8;
+    for (let n = -3; n <= 3; n++) {
+      ctx.beginPath();
+      ctx.moveTo(cx + n * r * 0.22, cy - r * 0.72);
+      ctx.bezierCurveTo(cx + n * r * 0.22 + r * 0.05, cy - r * 0.30, cx + n * r * 0.22 - r * 0.05, cy + r * 0.30, cx + n * r * 0.22, cy + r * 0.72);
+      ctx.stroke();
+    }
+    for (let n = -2; n <= 2; n++) {
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.80, cy + n * r * 0.25);
+      ctx.bezierCurveTo(cx - r * 0.30, cy + n * r * 0.25 + r * 0.05, cx + r * 0.30, cy + n * r * 0.25 - r * 0.05, cx + r * 0.80, cy + n * r * 0.25);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = '#3A7820'; ctx.lineWidth = r * 0.09;
+    ctx.beginPath(); ctx.moveTo(cx, cy - r * 0.72); ctx.lineTo(cx + r * 0.12, cy - r * 0.95); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.20)';
+    ctx.beginPath();
+    ctx.ellipse(cx - r * 0.22, cy - r * 0.25, r * 0.22, r * 0.14, -0.5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ── パイナップル ────────────────────────────────────────────────────────────
+  else if (cropId === 'pineapple') {
+    const pig = ctx.createRadialGradient(cx - r * 0.15, cy + r * 0.05, r * 0.05, cx, cy + r * 0.15, r * 0.70);
+    pig.addColorStop(0, '#FFD840'); pig.addColorStop(1, '#B07808');
+    ctx.fillStyle = pig;
+    ctx.beginPath(); ctx.ellipse(cx, cy + r * 0.10, r * 0.50, r * 0.72, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(150,80,0,0.40)'; ctx.lineWidth = 0.8;
+    for (let n = -3; n <= 3; n++) {
+      ctx.beginPath();
+      ctx.moveTo(cx + n * r * 0.18 - r * 0.50, cy + r * 0.10 - r * 0.72);
+      ctx.lineTo(cx + n * r * 0.18 + r * 0.50, cy + r * 0.10 + r * 0.72); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx - n * r * 0.18 + r * 0.50, cy + r * 0.10 - r * 0.72);
+      ctx.lineTo(cx - n * r * 0.18 - r * 0.50, cy + r * 0.10 + r * 0.72); ctx.stroke();
+    }
+    // 王冠
+    const crownY = cy - r * 0.60;
+    const leafDat = [[-0.30, -0.95, -0.50], [-0.12, -1.05, -0.18], [0.12, -1.05, 0.18], [0.30, -0.95, 0.50], [0, -0.98, 0]];
+    for (const [lx, ly, ctrl] of leafDat) {
+      ctx.fillStyle = lx === 0 ? '#3CC848' : '#228832';
+      ctx.beginPath();
+      ctx.moveTo(cx, crownY + r * 0.05);
+      ctx.bezierCurveTo(cx + ctrl * r * 0.30, crownY + ly * r * 0.40, cx + lx * r * 0.60, crownY + ly * r * 0.65, cx + lx * r, crownY + ly * r);
+      ctx.bezierCurveTo(cx + lx * r * 0.55, crownY + ly * r * 0.60, cx + ctrl * r * 0.20, crownY + ly * r * 0.35, cx, crownY + r * 0.05);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#3A9840';
+    ctx.beginPath(); ctx.arc(cx, crownY + r * 0.05, r * 0.12, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ── ドラゴンフルーツ ─────────────────────────────────────────────────────────
+  else if (cropId === 'dragonfruit') {
+    const dfg = ctx.createRadialGradient(cx - r * 0.18, cy - r * 0.12, r * 0.05, cx, cy, r * 0.82);
+    dfg.addColorStop(0, '#FF88C0'); dfg.addColorStop(0.75, '#E01878'); dfg.addColorStop(1, '#900838');
+    ctx.fillStyle = dfg;
+    ctx.beginPath(); ctx.ellipse(cx, cy, r * 0.72, r * 0.82, 0, 0, Math.PI * 2); ctx.fill();
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const sx = cx + Math.cos(a) * r * 0.72, sy = cy + Math.sin(a) * r * 0.82;
+      ctx.save(); ctx.translate(sx, sy); ctx.rotate(a);
+      ctx.fillStyle = i % 3 === 0 ? '#3CB840' : '#28A030';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.bezierCurveTo(-r * 0.10, -r * 0.04, -r * 0.12, -r * 0.22, 0, -r * 0.26);
+      ctx.bezierCurveTo(r * 0.12, -r * 0.22, r * 0.10, -r * 0.04, 0, 0);
+      ctx.fill(); ctx.restore();
+    }
+    ctx.fillStyle = 'rgba(255,240,250,0.15)';
+    ctx.beginPath(); ctx.ellipse(cx, cy, r * 0.40, r * 0.46, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(40,0,20,0.55)';
+    for (const [ox, oy] of [[-0.18, -0.20], [0.22, -0.10], [-0.05, 0.18], [0.18, 0.22], [-0.24, 0.10]]) {
+      ctx.beginPath(); ctx.arc(cx + ox * r, cy + oy * r, r * 0.04, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(255,200,230,0.30)';
+    ctx.beginPath();
+    ctx.ellipse(cx - r * 0.22, cy - r * 0.28, r * 0.20, r * 0.12, -0.4, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ── 黄金作物 ───────────────────────────────────────────────────────────────
+  else if (cropId === 'golden') {
+    const oR = r * 0.72, iR = r * 0.32, pts = 8;
+    const gg = ctx.createRadialGradient(cx, cy, 0, cx, cy, oR * 1.4);
+    gg.addColorStop(0, 'rgba(255,220,50,0.55)'); gg.addColorStop(1, 'rgba(255,180,0,0)');
+    ctx.fillStyle = gg;
+    ctx.beginPath(); ctx.arc(cx, cy, oR * 1.4, 0, Math.PI * 2); ctx.fill();
+    const sg = ctx.createRadialGradient(cx - oR * 0.2, cy - oR * 0.2, 0, cx, cy, oR);
+    sg.addColorStop(0, '#FFF068'); sg.addColorStop(0.5, '#FFD020'); sg.addColorStop(1, '#C08000');
+    ctx.fillStyle = sg;
+    ctx.beginPath();
+    for (let i = 0; i < pts * 2; i++) {
+      const a = (i / (pts * 2)) * Math.PI * 2 - Math.PI * 0.5;
+      const rad = i % 2 === 0 ? oR : iR;
+      const px = cx + Math.cos(a) * rad, py = cy + Math.sin(a) * rad;
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#FFFFC0'; ctx.lineWidth = 1.2;
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * oR * 1.1, cy + Math.sin(a) * oR * 1.1);
+      ctx.lineTo(cx + Math.cos(a) * oR * 1.5, cy + Math.sin(a) * oR * 1.5);
+      ctx.moveTo(cx - Math.cos(a) * oR * 1.1, cy - Math.sin(a) * oR * 1.1);
+      ctx.lineTo(cx - Math.cos(a) * oR * 1.5, cy - Math.sin(a) * oR * 1.5);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath(); ctx.arc(cx, cy, r * 0.12, 0, Math.PI * 2); ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+// ── 鍵アイコン描画（LOCKEDスロット用）────────────────────────────────────────
+function drawLockIcon(ctx, cx, cy, r, color) {
+  ctx.save();
+  // 鍵穴の本体（丸）
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = r * 0.12;
+  ctx.beginPath(); ctx.arc(cx, cy + r * 0.18, r * 0.52, 0, Math.PI * 2); ctx.fill();
+  // シャックル（弧）
+  ctx.fillStyle = 'rgba(0,0,0,0)';
+  ctx.beginPath();
+  ctx.arc(cx, cy - r * 0.12, r * 0.34, Math.PI, 0); ctx.stroke();
+  // 鍵穴
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.beginPath(); ctx.arc(cx, cy + r * 0.12, r * 0.16, 0, Math.PI * 2); ctx.fill();
+  ctx.fillRect(cx - r * 0.07, cy + r * 0.10, r * 0.14, r * 0.32);
+  ctx.restore();
+}
+
+// ── 芽アイコン描画（空きスロット用）──────────────────────────────────────────
+function drawSproutIcon(ctx, cx, cy, r, color) {
+  ctx.save();
+  ctx.lineCap = 'round';
+  // 茎
+  ctx.strokeStyle = '#508830'; ctx.lineWidth = r * 0.14;
+  ctx.beginPath(); ctx.moveTo(cx, cy + r * 0.60); ctx.lineTo(cx, cy - r * 0.10); ctx.stroke();
+  // 左葉
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy + r * 0.10);
+  ctx.bezierCurveTo(cx - r * 0.55, cy - r * 0.15, cx - r * 0.60, cy - r * 0.70, cx - r * 0.08, cy - r * 0.80);
+  ctx.bezierCurveTo(cx - r * 0.08, cy - r * 0.40, cx, cy - r * 0.10, cx, cy + r * 0.10);
+  ctx.fill();
+  // 右葉（少し小さめ）
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - r * 0.05);
+  ctx.bezierCurveTo(cx + r * 0.50, cy - r * 0.20, cx + r * 0.55, cy - r * 0.65, cx + r * 0.06, cy - r * 0.72);
+  ctx.bezierCurveTo(cx + r * 0.06, cy - r * 0.35, cx, cy - r * 0.08, cx, cy - r * 0.05);
+  ctx.fill();
+  ctx.restore();
+}
+
 // ── 3D スロット描画 ──────────────────────────────────────────────────────────
 function drawSlot(ctx, slot, index, unlockedCount) {
   const col = index % COLS;
@@ -156,14 +564,11 @@ function drawSlot(ctx, slot, index, unlockedCount) {
 
   // ── LOCKED ──
   if (isLocked) {
-    ctx.fillStyle    = pal.text;
-    ctx.font         = '36px sans-serif';
-    ctx.textAlign    = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🔒', cx, y + CELL_H / 2 - 8);
+    drawLockIcon(ctx, cx, y + CELL_H / 2 - 14, 18, pal.text);
+    ctx.font      = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
-    ctx.font         = 'bold 11px sans-serif';
-    ctx.fillStyle    = pal.text;
+    ctx.fillStyle = pal.text;
     ctx.fillText('LOCKED', cx, y + CELL_H / 2 + 20);
     return;
   }
@@ -184,13 +589,10 @@ function drawSlot(ctx, slot, index, unlockedCount) {
       ctx.moveTo(x + 18, sl); ctx.lineTo(x + CELL_W - 18, sl);
       ctx.stroke();
     }
-    ctx.fillStyle    = pal.text;
-    ctx.font         = '32px sans-serif';
-    ctx.textAlign    = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🌱', cx, y + CELL_H / 2 - 8);
+    drawSproutIcon(ctx, cx, y + CELL_H / 2 - 14, 20, pal.text);
     ctx.textBaseline = 'alphabetic';
     ctx.font         = '12px sans-serif';
+    ctx.textAlign    = 'center';
     ctx.fillStyle    = pal.text;
     ctx.fillText('空きスロット', cx, y + CELL_H / 2 + 22);
     return;
@@ -224,22 +626,10 @@ function drawSlot(ctx, slot, index, unlockedCount) {
   ctx.stroke();
 
   // ── 作物アイコン（大・グロー付き）──
-  if (status === 'optimal') {
-    ctx.shadowColor = crop.color;
-    ctx.shadowBlur  = 22;
-  } else if (status === 'growing') {
-    ctx.shadowColor = crop.color;
-    ctx.shadowBlur  = 10;
-  } else {
-    ctx.shadowColor = crop.color;
-    ctx.shadowBlur  = 14;
+  {
+    const glow = status === 'optimal' ? 22 : status === 'growing' ? 10 : 14;
+    drawCropIcon(ctx, slot.crop, cx, y + CELL_H / 2 - 18, 26, crop.color, glow);
   }
-  ctx.font         = '48px sans-serif';
-  ctx.textAlign    = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle    = '#FFFFFF';
-  ctx.fillText(crop.emoji, cx, y + CELL_H / 2 - 18);
-  ctx.shadowBlur = 0;
   ctx.textBaseline = 'alphabetic';
 
   // 作物名
@@ -2881,11 +3271,27 @@ function generateInteriorImage(farm, ownerName = null) {
     { fx: 0.34, fy: 0.85 }, { fx: 0.66, fy: 0.85 },  // 最前・左右
   ];
 
-  const furnitureTop = house.furnitureTop ?? {};
+  const furnitureTop       = house.furnitureTop       ?? {};
+  const furniturePositions = house.furniturePositions ?? {};
 
   // 奥→手前の順で描画（ペインターズアルゴリズム）
+  // furniturePositions[itemId] が設定されていればそのインデックス、なければ追加順で割り当て
+  const assignedIdx = {};
+  let autoIdx = 0;
   const sortedFurn = furniture
-    .map((id, i) => ({ id, pos: positions[i % positions.length] }))
+    .map(id => {
+      let posIdx;
+      if (furniturePositions[id] !== undefined) {
+        posIdx = furniturePositions[id];
+      } else {
+        // 既に他のアイテムに使われていないインデックスを探す
+        const usedByPos = new Set(Object.values(furniturePositions));
+        while (usedByPos.has(autoIdx) || Object.values(assignedIdx).includes(autoIdx)) autoIdx++;
+        posIdx = autoIdx++;
+      }
+      assignedIdx[id] = posIdx;
+      return { id, pos: positions[posIdx % positions.length] };
+    })
     .sort((a, b) => a.pos.fy - b.pos.fy);
 
   for (const { id, pos } of sortedFurn) {

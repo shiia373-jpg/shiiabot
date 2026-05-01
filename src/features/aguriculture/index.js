@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { loadFarm, setFarmMessage } = require('./game/farmState');
+const { loadFarm, setFarmMessage, setRoomView } = require('./game/farmState');
 const {
   buildFarmPayload,
   buildInteriorPayload,
@@ -67,6 +67,7 @@ async function handleButton(interaction) {
   try {
     // ── 入室（室内ビュー）──
     if (customId === 'farm_enter_room') {
+      await setRoomView(user.id, true);   // 自動更新を一時停止
       return interaction.editReply(await buildInteriorPayload(user.id));
     }
 
@@ -94,6 +95,7 @@ async function handleButton(interaction) {
 
     // ── 農場表示・更新 ──
     if (customId === 'farm_refresh') {
+      await setRoomView(user.id, false);  // 自動更新を再開
       await interaction.editReply(await buildFarmPayload(user.id));
       await setFarmMessage(user.id, interaction.message.id, interaction.channelId);
       return;
